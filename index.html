@@ -1,57 +1,55 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>FridgeXR True AR Prototype</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>FridgeXR</title>
 <style>
-html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:white}#wrap{position:fixed;inset:0}video,canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.hud{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom));display:flex;justify-content:center;gap:12px;pointer-events:none}.btn{pointer-events:auto;border:0;border-radius:999px;padding:18px 28px;font-weight:900;font-size:19px;letter-spacing:.06em;color:#140e04;background:linear-gradient(#ffd96a,#b88316);box-shadow:0 10px 35px #0009,0 0 35px #c98b1888}.btn.off{background:#242832;color:white}.top{position:fixed;top:calc(12px + env(safe-area-inset-top));left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;pointer-events:none}.pill{background:#111a;border:1px solid #fff3;border-radius:999px;padding:8px 12px;backdrop-filter:blur(10px);font-size:13px}.mini{position:fixed;right:10px;bottom:calc(92px + env(safe-area-inset-bottom));background:#111a;border:1px solid #fff3;border-radius:16px;padding:10px;backdrop-filter:blur(12px);display:none;min-width:210px}.mini.show{display:block}.mini label{display:grid;color:#ddd;font-size:12px;margin:7px 0}.mini input{accent-color:#d9a32f}.gear{pointer-events:auto;border:1px solid #fff3;border-radius:999px;background:#111b;color:white;padding:9px 12px}.note{position:fixed;left:12px;bottom:calc(92px + env(safe-area-inset-bottom));max-width:310px;background:#111a;border:1px solid #fff3;border-radius:16px;padding:10px;backdrop-filter:blur(12px);font-size:12px;line-height:1.25;color:#ddd}.hide{display:none}</style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;touch-action:none}
+  #cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+  #void{position:fixed;inset:0;opacity:0;pointer-events:none;transition:opacity .28s ease;background:radial-gradient(ellipse at 50% 49%,rgba(0,0,0,.97) 0%,rgba(0,0,0,.95) 34%,rgba(0,0,0,.82) 48%,rgba(0,0,0,.30) 60%,rgba(0,0,0,0) 72%)}
+  #portal{position:fixed;left:50%;top:50%;width:min(86vw,520px);height:min(74vh,720px);transform:translate(-50%,-50%);border-radius:28px;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .28s ease, box-shadow .28s ease;box-shadow:0 0 0 2px rgba(244,190,55,.85),0 0 36px rgba(245,191,55,.25),inset 0 0 80px rgba(0,0,0,.9);background:radial-gradient(ellipse at center,#181818 0%,#050505 70%)}
+  .layer{position:absolute;left:50%;top:50%;width:104%;height:104%;object-fit:contain;transform:translate(-50%,-50%);filter:contrast(1.08) saturate(1.22) drop-shadow(0 0 22px rgba(255,200,70,.24));will-change:transform}
+  #main{z-index:3}.back{z-index:1;opacity:.62;filter:blur(.7px) saturate(1.4) brightness(.78)}.front{z-index:5;opacity:.78;filter:contrast(1.2) saturate(1.35) drop-shadow(0 0 16px rgba(255,210,80,.35))}
+  #glass{position:absolute;inset:0;z-index:8;background:linear-gradient(115deg,transparent 0%,transparent 38%,rgba(255,255,255,.20) 43%,rgba(255,255,255,.04) 50%,transparent 56%),radial-gradient(circle at 47% 40%,rgba(255,200,70,.14),transparent 35%);mix-blend-mode:screen;pointer-events:none}
+  #grain{position:absolute;inset:0;z-index:9;opacity:.13;background:repeating-radial-gradient(circle at center,rgba(255,210,80,.22) 0 1px,transparent 1px 7px);pointer-events:none}
+  #top{position:fixed;top:calc(12px + env(safe-area-inset-top));left:14px;right:14px;display:flex;justify-content:space-between;z-index:20;pointer-events:none}
+  .pill{background:rgba(0,0,0,.45);color:#fff;border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(12px);padding:10px 14px;border-radius:999px;font-weight:700;font-size:16px}
+  #ui{position:fixed;left:0;right:0;bottom:calc(22px + env(safe-area-inset-bottom));display:flex;justify-content:center;z-index:20}
+  #xray{border:0;border-radius:999px;padding:20px 46px;background:linear-gradient(#ffd85e,#c49216);color:#15100a;font-weight:900;font-size:28px;letter-spacing:.04em;box-shadow:0 12px 38px rgba(0,0,0,.45)}
+  #help{position:fixed;left:14px;right:14px;bottom:calc(104px + env(safe-area-inset-bottom));z-index:20;color:#fff;text-align:center;font-size:13px;line-height:1.3;text-shadow:0 1px 6px #000;opacity:.86;pointer-events:none}
+  body.on #void{opacity:1} body.on #portal{opacity:1} body.on #help{opacity:0}
+  @media(min-width:700px){#portal{width:520px;height:720px}}
+</style>
 </head>
-<body><div id="wrap"><video id="v" autoplay playsinline muted></video><canvas id="c"></canvas></div>
-<div class="top"><div class="pill" id="status">Tap Start</div><button class="gear" id="gear">Calibrate</button></div>
-<div class="note" id="note">This prototype renders a procedural 3D-like dilution-fridge chandelier, not a still photo. Move the phone: the plates and wiring shift in perspective.</div>
-<div class="mini" id="mini"><label>Window X <input id="wx" type="range" min="20" max="80" value="50"></label><label>Window Y <input id="wy" type="range" min="20" max="75" value="47"></label><label>Window size <input id="ws" type="range" min="30" max="95" value="66"></label><label>Depth/parallax <input id="depth" type="range" min="10" max="100" value="48"></label><label>Strip strength <input id="strip" type="range" min="70" max="100" value="96"></label></div>
-<div class="hud"><button class="btn off" id="start">START</button><button class="btn" id="xray">XRAY</button></div>
+<body>
+<video id="cam" autoplay playsinline muted></video>
+<div id="void"></div>
+<div id="portal">
+  <img id="back1" class="layer back" src="assets/chandelier_alt1.png" alt="">
+  <img id="main" class="layer" src="assets/chandelier_main.png" alt="">
+  <img id="front1" class="layer front" src="assets/chandelier_alt2.png" alt="">
+  <div id="glass"></div><div id="grain"></div>
+</div>
+<div id="top"><div id="state" class="pill">LIVE VIEW</div><div class="pill">FridgeXR</div></div>
+<div id="help">Point at the closed fridge window, then press XRAY.</div>
+<div id="ui"><button id="xray">XRAY</button></div>
 <script>
-const video=document.getElementById('v'), canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
-let running=false,xray=false,tiltX=0,tiltY=0,manualX=0,manualY=0;
-const ids=['wx','wy','ws','depth','strip']; const ctl=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)]));
-function val(id){return +ctl[id].value}
-async function start(){try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=s;running=true;document.getElementById('status').textContent='Camera live';document.getElementById('start').classList.remove('off');document.getElementById('start').textContent='LIVE'; if(window.DeviceOrientationEvent&&DeviceOrientationEvent.requestPermission){try{await DeviceOrientationEvent.requestPermission()}catch(e){}}}catch(e){alert('Camera needs HTTPS and permission. '+e.message)}}
-window.addEventListener('deviceorientation',e=>{if(e.gamma!=null){tiltX=e.gamma/35;tiltY=(e.beta-55)/45}});window.addEventListener('mousemove',e=>{manualX=(e.clientX/innerWidth-.5)*1.2;manualY=(e.clientY/innerHeight-.5)*1.2});
-function project(p,cx,cy,scale,viewX,viewY){let [x,y,z]=p; let f=1/(1+z*.0018); return [cx+(x+viewX*z*.38)*scale*f, cy+(y+viewY*z*.25)*scale*f, f]}
-function ellipse(cx,cy,rx,ry,fill,stroke,lw=2){ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill(); if(stroke){ctx.lineWidth=lw;ctx.strokeStyle=stroke;ctx.stroke()}}
-function line(a,b,col,w){ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.strokeStyle=col;ctx.lineWidth=w;ctx.stroke()}
-function drawChandelier(cx,cy,scale,viewX,viewY){
- const gold=ctx.createLinearGradient(0,cy-scale*2,0,cy+scale*2);gold.addColorStop(0,'#fff1a3');gold.addColorStop(.25,'#d29a22');gold.addColorStop(.55,'#f5ce55');gold.addColorStop(1,'#8d5b09');
- const dark='rgba(83,54,4,.75)', steel='rgba(220,225,220,.92)', copper='rgba(196,98,37,.8)', blue='rgba(5,80,190,.95)';
- const levels=[[-390,1.05],[-205,.88],[-35,.74],[150,.58],[315,.38]];
- // back rods
- for(let i=0;i<8;i++){let a=i/8*Math.PI*2;let r=155;let x=Math.cos(a)*r,y=Math.sin(a)*32;let p1=project([x,y,levels[0][0]-70],cx,cy,scale,viewX,viewY);let p2=project([x,y,levels[4][0]+40],cx,cy,scale,viewX,viewY);line(p1,p2,steel,2.2*p1[2])}
- // copper braids behind
- for(let side of [-1,1]) for(let i=0;i<5;i++){let pts=[];for(let t=0;t<28;t++){let z=-330+t*17;let x=side*(58+i*10)+Math.sin(t*.7+i)*8;let y=-30+Math.cos(t*.5)*12;pts.push(project([x,y,z],cx,cy,scale,viewX,viewY))}ctx.beginPath();pts.forEach((p,j)=>j?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.strokeStyle=copper;ctx.lineWidth=1.4;ctx.stroke()}
- // plates
- for(const [z,rad] of levels){let p=project([0,0,z],cx,cy,scale,viewX,viewY);ellipse(p[0],p[1],rad*scale*p[2],rad*scale*.20*p[2],gold,'rgba(255,237,158,.95)',2.5*p[2]);ellipse(p[0],p[1]-5*p[2],rad*.72*scale*p[2],rad*.12*scale*p[2],'rgba(255,246,186,.18)','rgba(94,59,5,.35)',1*p[2]);
-   for(let i=0;i<20;i++){let a=i/20*Math.PI*2;let hp=project([Math.cos(a)*rad*118,Math.sin(a)*rad*24,z-2],cx,cy,scale,viewX,viewY);ellipse(hp[0],hp[1],2.2*p[2],1.1*p[2],'rgba(75,45,0,.7)')}
- }
- // dense coax/wires at front
- for(let i=0;i<34;i++){let x=-118+i*7;let y=-16+Math.sin(i)*5;let top=project([x,y,-355],cx,cy,scale,viewX,viewY), bot=project([x+Math.sin(i*.8)*16,y+Math.cos(i)*10,145+Math.sin(i)*60],cx,cy,scale,viewX,viewY);line(top,bot,i%5==0?'rgba(35,120,255,.85)':(i%3==0?'rgba(240,235,215,.8)':'rgba(180,180,170,.75)'),i%5==0?2.2:1.15)}
- // blue component from user's photos
- let bp=project([0,-20,35],cx,cy,scale,viewX,viewY);ctx.save();ctx.translate(bp[0],bp[1]);ctx.rotate(viewX*.10);ctx.fillStyle=blue;ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=2;roundRect(-58*scale*bp[2],-34*scale*bp[2],116*scale*bp[2],68*scale*bp[2],8*scale*bp[2]);ctx.fill();ctx.stroke();ctx.restore();
- // lower experimental payload, golden not silver cans
- let lp=project([0,15,360],cx,cy,scale,viewX,viewY);ctx.fillStyle='rgba(218,164,44,.95)';roundRect(lp[0]-32*scale*lp[2],lp[1]-26*scale*lp[2],64*scale*lp[2],52*scale*lp[2],7*scale*lp[2]);ctx.fill();ctx.strokeStyle='rgba(255,232,130,.8)';ctx.stroke();
-}
-function roundRect(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
-function frameMask(cx,cy,w,h){ctx.beginPath();ctx.roundRect(cx-w/2,cy-h/2,w,h,Math.min(w,h)*.09)}
-function draw(){requestAnimationFrame(draw);canvas.width=innerWidth*devicePixelRatio;canvas.height=innerHeight*devicePixelRatio;ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);ctx.clearRect(0,0,innerWidth,innerHeight);if(!xray)return;
- const cx=innerWidth*val('wx')/100, cy=innerHeight*val('wy')/100, w=innerWidth*val('ws')/100, h=w*1.25; let vx=(tiltX||manualX)*val('depth')/48, vy=(tiltY||manualY)*val('depth')/48;
- ctx.save();frameMask(cx,cy,w,h);ctx.clip();
- // strip: opaque frosted replacement hides cans/OVC, leaves slight glass feel
- ctx.fillStyle=`rgba(8,10,12,${val('strip')/100})`;ctx.fillRect(cx-w/2,cy-h/2,w,h);
- let g=ctx.createRadialGradient(cx-w*.18,cy-h*.25,10,cx,cy,w*.65);g.addColorStop(0,'rgba(255,230,130,.28)');g.addColorStop(.45,'rgba(20,20,18,.45)');g.addColorStop(1,'rgba(0,0,0,.85)');ctx.fillStyle=g;ctx.fillRect(cx-w/2,cy-h/2,w,h);
- drawChandelier(cx,cy+h*.04,w/380,vx,vy);
- ctx.fillStyle='rgba(255,255,255,.07)';ctx.fillRect(cx-w*.47,cy-h*.47,w*.06,h*.92);ctx.fillStyle='rgba(255,255,255,.045)';ctx.fillRect(cx+w*.36,cy-h*.47,w*.08,h*.92);
- ctx.restore();
- ctx.strokeStyle='rgba(255,210,88,.8)';ctx.lineWidth=2;frameMask(cx,cy,w,h);ctx.stroke();
-}
-document.getElementById('start').onclick=start;document.getElementById('xray').onclick=()=>{xray=!xray;document.getElementById('xray').classList.toggle('off',!xray);document.getElementById('note').classList.toggle('hide',xray);document.getElementById('status').textContent=xray?'XRAY vision on':'Camera live'};document.getElementById('gear').onclick=()=>document.getElementById('mini').classList.toggle('show');draw();
-</script></body></html>
+const cam=document.getElementById('cam'), portal=document.getElementById('portal'), body=document.body, state=document.getElementById('state');
+const layers=[document.getElementById('back1'),document.getElementById('main'),document.getElementById('front1')];
+let on=false, ox=0, oy=0, tick=0;
+async function camera(){try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});cam.srcObject=s;}catch(e){state.textContent='CAMERA BLOCKED';alert('Camera needs HTTPS. On GitHub Pages this should work. Allow camera access and reload.');}}
+camera();
+function render(){tick+=.018; const breath=Math.sin(tick)*3; const glow=1+Math.sin(tick*.8)*.035;
+  layers[0].style.transform=`translate(calc(-50% + ${-ox*.45}px),calc(-50% + ${-oy*.32+breath}px)) scale(${1.18+glow*.015}) rotate(${ox*.012}deg)`;
+  layers[1].style.transform=`translate(calc(-50% + ${ox*.18}px),calc(-50% + ${oy*.12-breath*.4}px)) scale(${1.02+glow*.01}) rotate(${ox*.006}deg)`;
+  layers[2].style.transform=`translate(calc(-50% + ${ox*.72}px),calc(-50% + ${oy*.55-breath}px)) scale(${.82+glow*.012}) rotate(${ox*.018}deg)`;
+  requestAnimationFrame(render);
+} render();
+function setMotion(x,y){ox=x; oy=y; portal.style.transform=`translate(calc(-50% + ${x*.08}px),calc(-50% + ${y*.05}px)) perspective(800px) rotateY(${x*.025}deg) rotateX(${-y*.018}deg)`;}
+window.addEventListener('deviceorientation',e=>{setMotion((e.gamma||0)*3,(e.beta||0)*1.4-35);});
+window.addEventListener('pointermove',e=>{setMotion((e.clientX/innerWidth-.5)*120,(e.clientY/innerHeight-.5)*90);});
+document.getElementById('xray').onclick=()=>{on=!on;body.classList.toggle('on',on);state.textContent=on?'XRAY VISION':'LIVE VIEW';};
+</script>
+</body>
+</html>
