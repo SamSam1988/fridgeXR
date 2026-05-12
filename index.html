@@ -2,110 +2,49 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>FridgeXR v6</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+<title>FridgeXR v7</title>
 <style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;touch-action:none}
-  #cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
-  #world{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .28s ease}
-  body.xr #world{opacity:1}
-
-  /* This is deliberately NOT a black window. It is a transparent material-replacement field. */
-  #field{
-    position:absolute;left:50%;top:48%;width:min(76vw,620px);height:min(62vh,760px);
-    transform:translate(-50%,-50%);
-    border-radius:28%/18%;
-    overflow:hidden;
-    background:
-      radial-gradient(ellipse at 52% 44%, rgba(255,230,150,.20) 0%, rgba(255,230,150,.08) 23%, rgba(255,255,255,.05) 44%, rgba(255,255,255,0) 72%),
-      linear-gradient(90deg,rgba(255,255,255,.13),rgba(255,255,255,.035) 18%,rgba(255,255,255,.02) 75%,rgba(255,255,255,.12));
-    box-shadow:
-      inset 0 0 0 1px rgba(255,215,90,.35),
-      inset 0 0 60px rgba(255,210,80,.13),
-      0 0 28px rgba(255,200,60,.10);
-    backdrop-filter: blur(1.2px) saturate(.68) contrast(.76) brightness(1.08);
-    -webkit-backdrop-filter: blur(1.2px) saturate(.68) contrast(.76) brightness(1.08);
-    mask-image:radial-gradient(ellipse at center,#000 0%,#000 55%,rgba(0,0,0,.7) 70%,rgba(0,0,0,0) 88%);
-    -webkit-mask-image:radial-gradient(ellipse at center,#000 0%,#000 55%,rgba(0,0,0,.7) 70%,rgba(0,0,0,0) 88%);
-  }
-  #field:before{
-    content:"";position:absolute;inset:0;pointer-events:none;
-    background:
-      linear-gradient(90deg,transparent 0 7%,rgba(255,255,255,.20) 8%,transparent 10% 89%,rgba(255,255,255,.15) 91%,transparent 94%),
-      radial-gradient(ellipse at center,transparent 0 55%,rgba(0,0,0,.10) 85%);
-    mix-blend-mode:screen;
-  }
-  #field:after{
-    content:"";position:absolute;inset:0;pointer-events:none;
-    background:linear-gradient(120deg,transparent 8%,rgba(255,255,255,.18) 12%,transparent 19%,transparent 58%,rgba(255,255,255,.12) 62%,transparent 69%);
-    opacity:.45;mix-blend-mode:screen;
-  }
-
-  .chandelier{position:absolute;left:50%;top:49%;height:94%;width:auto;transform:translate(-50%,-50%) scale(1);transform-origin:center;filter:drop-shadow(0 12px 20px rgba(0,0,0,.28)) saturate(1.12) contrast(1.05);opacity:.96;mix-blend-mode:normal}
-  .ghost{position:absolute;left:50%;top:49%;height:96%;width:auto;transform:translate(-50%,-50%);opacity:.16;filter:blur(10px) saturate(1.4);mix-blend-mode:screen}
-
-  /* very faint occlusion ribs so the object feels inside the existing fridge volume, not pasted on top */
-  #occlusion{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(0,0,0,.18) 0 4%,transparent 5% 91%,rgba(0,0,0,.18) 96%),linear-gradient(0deg,rgba(0,0,0,.08),transparent 20% 80%,rgba(0,0,0,.12));mix-blend-mode:multiply;opacity:.5}
-
-  #status{position:fixed;top:calc(14px + env(safe-area-inset-top));left:14px;z-index:4;padding:10px 15px;border-radius:999px;background:rgba(0,0,0,.42);color:#fff;font-weight:700;font-size:16px;backdrop-filter:blur(10px)}
-  #hint{position:fixed;top:calc(14px + env(safe-area-inset-top));right:14px;z-index:4;padding:10px 13px;border-radius:999px;background:rgba(0,0,0,.32);color:#fff;font-size:14px;backdrop-filter:blur(10px)}
-  #ui{position:fixed;left:0;right:0;bottom:calc(20px + env(safe-area-inset-bottom));display:flex;justify-content:center;gap:14px;z-index:4}
-  button{border:0;border-radius:999px;padding:18px 42px;background:linear-gradient(#ffdc69,#d9a51e);color:#111;font-weight:900;font-size:22px;letter-spacing:.04em;box-shadow:0 10px 35px rgba(0,0,0,.38)}
-  #cal{padding:14px 20px;font-size:15px;background:rgba(20,20,20,.55);color:white;border:1px solid rgba(255,255,255,.22);font-weight:700;letter-spacing:0}
-  #guide{position:fixed;inset:0;border:2px dashed rgba(255,214,88,.75);border-radius:28%/18%;width:min(76vw,620px);height:min(62vh,760px);left:50%;top:48%;transform:translate(-50%,-50%);opacity:0;pointer-events:none;z-index:3;box-shadow:0 0 0 9999px rgba(0,0,0,.08)}
-  body.cal #guide{opacity:1}
-</style>
+:root{--gold:#f1c64c;--ink:#050505}*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}#cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000}.fx{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .18s ease}.xray .fx.ready{opacity:1}#softErase{background:radial-gradient(ellipse at var(--cx,50%) var(--cy,50%),rgba(218,218,205,.24) 0%,rgba(218,218,205,.19) 21%,rgba(218,218,205,.10) 39%,rgba(218,218,205,0) 62%);mix-blend-mode:screen;filter:blur(7px)}#glass{background:radial-gradient(ellipse at var(--cx,50%) var(--cy,50%),rgba(255,255,255,.18),rgba(255,255,255,.05) 34%,rgba(255,255,255,0) 61%),linear-gradient(105deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.22) 47%,rgba(255,255,255,0) 58%);mix-blend-mode:screen;opacity:0}.xray #glass.ready{opacity:.55}#scene{position:fixed;left:var(--cx,50%);top:var(--cy,50%);width:min(58vw,430px);height:min(76vh,680px);transform:translate(-50%,-50%);pointer-events:none;opacity:0;transition:opacity .18s ease,filter .18s ease;filter:drop-shadow(0 0 18px rgba(245,190,55,.36)) contrast(1.07) saturate(1.12)}.xray #scene.ready{opacity:.88}.layer{position:absolute;left:50%;top:50%;max-width:none;transform-origin:center;will-change:transform}.glow{width:115%;opacity:.55;mix-blend-mode:screen}.main{width:100%;opacity:.92}.alt{width:86%;opacity:.24;mix-blend-mode:screen;filter:blur(.35px)}#vignette{background:radial-gradient(circle at var(--cx,50%) var(--cy,50%),rgba(255,220,90,0) 0%,rgba(0,0,0,0) 45%,rgba(0,0,0,.18) 100%);opacity:0}.xray #vignette.ready{opacity:1}#ui{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom));z-index:20;display:flex;justify-content:center;gap:12px;padding:0 16px}.btn{border:0;border-radius:999px;padding:16px 25px;font-size:18px;font-weight:800;background:rgba(20,20,20,.62);color:white;backdrop-filter:blur(14px);box-shadow:0 8px 26px rgba(0,0,0,.35)}.btn.gold{background:linear-gradient(#ffd95b,#c9961b);color:#111}.hidden{display:none}#top{position:fixed;top:calc(14px + env(safe-area-inset-top));left:14px;right:14px;z-index:20;display:flex;gap:10px;align-items:center;justify-content:space-between}.pill{padding:10px 14px;border-radius:999px;background:rgba(0,0,0,.54);color:#fff;backdrop-filter:blur(14px);font-size:15px}#reticle{position:fixed;left:50%;top:48%;width:min(54vw,400px);height:min(66vh,620px);transform:translate(-50%,-50%);border:2px dashed rgba(255,214,83,.75);border-radius:46%/8%;opacity:.0;pointer-events:none;z-index:12}.armed #reticle{opacity:.75}.locked #reticle{opacity:.18;border-style:solid}.hint{position:fixed;left:16px;right:16px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:20;text-align:center;color:white;text-shadow:0 2px 12px #000;font-size:15px;line-height:1.25;opacity:.95}.locked .hint{opacity:.0}.lost .hint{opacity:.95}#debug{display:none}</style>
 </head>
 <body>
 <video id="cam" autoplay playsinline muted></video>
-<div id="world">
-  <div id="field">
-    <img class="ghost" id="glow" src="assets/chandelier_main.png" alt="">
-    <img class="chandelier" id="chandelier" src="assets/chandelier_main.png" alt="golden dilution refrigerator interior">
-    <div id="occlusion"></div>
-  </div>
+<div id="softErase" class="fx"></div>
+<div id="glass" class="fx"></div>
+<div id="scene">
+  <img class="layer glow" src="assets/chandelier_glow.png">
+  <img class="layer alt altA" src="assets/chandelier_alt_a.png">
+  <img class="layer main" src="assets/chandelier_photo.png">
+  <img class="layer alt altB" src="assets/chandelier_alt_b.png">
 </div>
-<div id="guide"></div>
-<div id="status">LIVE</div><div id="hint">Aim at fridge, tap XRAY</div>
-<div id="ui"><button id="cal">Calibrate</button><button id="toggle">XRAY</button></div>
+<div id="vignette" class="fx"></div>
+<div id="reticle"></div>
+<div id="top"><div id="status" class="pill">LIVE</div><button id="lock" class="btn hidden">LOCK ON FRIDGE</button></div>
+<div class="hint" id="hint">Press XRAY, point at the closed fridge, then tap LOCK. The cutaway appears only while you keep looking at that direction.</div>
+<div id="ui"><button id="live" class="btn">LIVE</button><button id="xray" class="btn gold">XRAY</button></div>
 <script>
-const cam=document.getElementById('cam'), body=document.body, statusEl=document.getElementById('status');
-const field=document.getElementById('field'), guide=document.getElementById('guide');
-const img=document.getElementById('chandelier'), glow=document.getElementById('glow');
-let on=false, cal=false, px=0, py=0, gamma=0, beta=0;
-let box={x:50,y:48,w:76,h:62};
-const variants=['assets/chandelier_main.png','assets/chandelier_alt1.png','assets/chandelier_alt2.png'];
-let variant=0;
-async function start(){
-  try{cam.srcObject=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});}
-  catch(e){statusEl.textContent='Camera blocked'; alert('Camera needs HTTPS and permission. '+e.message)}
+const body=document.body, statusEl=document.getElementById('status'), lockBtn=document.getElementById('lock');
+const scene=document.getElementById('scene'), layers=[...document.querySelectorAll('.layer')], fx=[...document.querySelectorAll('.fx'),scene];
+let mode='live', locked=false, lockOri=null, cur={a:0,b:0,g:0}, lastPointer={x:innerWidth/2,y:innerHeight/2}, ready=false;
+async function camera(){try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});cam.srcObject=s;}catch(e){statusEl.textContent='CAMERA BLOCKED';alert('Camera needs HTTPS and permission. '+e.message)}}camera();
+async function enableMotion(){try{if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){await DeviceOrientationEvent.requestPermission();}}catch(e){}}
+window.addEventListener('deviceorientation',e=>{cur={a:e.alpha||0,b:e.beta||0,g:e.gamma||0};render();});
+window.addEventListener('pointermove',e=>{lastPointer={x:e.clientX,y:e.clientY}; if(!locked) setCenter(e.clientX,e.clientY); render();});
+function setCenter(x,y){document.documentElement.style.setProperty('--cx',(x/innerWidth*100)+'%');document.documentElement.style.setProperty('--cy',(y/innerHeight*100)+'%')}
+function deltaAngle(a,b){let d=Math.abs(a-b)%360;return d>180?360-d:d}
+function visible(){if(mode!=='xray'||!locked)return false;if(!lockOri)return false;const dA=deltaAngle(cur.a,lockOri.a), dB=Math.abs(cur.b-lockOri.b), dG=Math.abs(cur.g-lockOri.g);return dA<18&&dB<16&&dG<18}
+function render(){const ok=visible();fx.forEach(el=>el.classList.toggle('ready',ok));body.classList.toggle('lost',mode==='xray'&&locked&&!ok);if(mode==='xray'&&locked)statusEl.textContent=ok?'XRAY LOCKED':'XRAY: LOOK BACK AT FRIDGE';
+ const dx=locked?(cur.g-(lockOri?.g||0))*2.2:(lastPointer.x/innerWidth-.5)*34; const dy=locked?(cur.b-(lockOri?.b||0))*1.15:(lastPointer.y/innerHeight-.5)*34; const z=1.03+Math.min(Math.abs(dx)*.0025,.08); const rot=dx*.05;
+ scene.style.transform=`translate(-50%,-50%) translate(${dx}px,${dy}px) scale(${z}) rotate(${rot}deg)`;
+ layers[0].style.transform=`translate(-50%,-50%) translate(${-dx*.65}px,${-dy*.45}px) scale(1.16)`;
+ layers[1].style.transform=`translate(-50%,-50%) translate(${-dx*.38}px,${-dy*.22}px) scale(.98)`;
+ layers[2].style.transform=`translate(-50%,-50%) translate(${-dx*.18}px,${-dy*.10}px) scale(1.0)`;
+ layers[3].style.transform=`translate(-50%,-50%) translate(${dx*.18}px,${dy*.10}px) scale(.88)`;
 }
-start();
-function place(){
-  const w=Math.min(window.innerWidth*box.w/100,620), h=Math.min(window.innerHeight*box.h/100,760);
-  for(const el of [field,guide]){el.style.left=box.x+'%';el.style.top=box.y+'%';el.style.width=w+'px';el.style.height=h+'px';}
-}
-place(); addEventListener('resize',place);
-function render(){
-  const dx=gamma*1.25 + px*18;
-  const dy=beta*.35 + py*16;
-  const rot=gamma*.08 + px*2.5;
-  const s=1.03 + Math.abs(gamma)*.0015 + Math.abs(px)*.015;
-  img.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) rotate(${rot}deg) scale(${s})`;
-  glow.style.transform=`translate(calc(-50% + ${dx*.55}px),calc(-50% + ${dy*.55}px)) scale(${s*1.05})`;
-  requestAnimationFrame(render);
-}
-render();
-addEventListener('deviceorientation',e=>{gamma=e.gamma||0; beta=e.beta||0;});
-addEventListener('pointermove',e=>{px=e.clientX/innerWidth-.5; py=e.clientY/innerHeight-.5;});
-
-document.getElementById('toggle').onclick=()=>{on=!on; body.classList.toggle('xr',on); statusEl.textContent=on?'XRAY: FRIDGE STILL IN ROOM':'LIVE'; if(on){variant=(variant+1)%variants.length; img.src=variants[variant]; glow.src=variants[variant];}};
-document.getElementById('cal').onclick=()=>{cal=!cal; body.classList.toggle('cal',cal); document.getElementById('cal').textContent=cal?'Done':'Calibrate'};
-let dragging=false, sx=0, sy=0, startBox=null;
-addEventListener('pointerdown',e=>{if(!cal)return; dragging=true; sx=e.clientX; sy=e.clientY; startBox={...box};});
-addEventListener('pointerup',()=>dragging=false);
-addEventListener('pointermove',e=>{if(!cal||!dragging)return; box.x=startBox.x+(e.clientX-sx)/innerWidth*100; box.y=startBox.y+(e.clientY-sy)/innerHeight*100; place();});
-addEventListener('wheel',e=>{if(!cal)return; e.preventDefault(); box.w=Math.max(35,Math.min(96,box.w-e.deltaY*.03)); box.h=Math.max(30,Math.min(90,box.h-e.deltaY*.03)); place();},{passive:false});
+document.getElementById('xray').onclick=async()=>{await enableMotion();mode='xray';locked=false;lockOri=null;body.className='armed xray';statusEl.textContent='XRAY ARMED';lockBtn.classList.remove('hidden');render()};
+document.getElementById('live').onclick=()=>{mode='live';locked=false;body.className='';statusEl.textContent='LIVE';lockBtn.classList.add('hidden');fx.forEach(el=>el.classList.remove('ready'))};
+lockBtn.onclick=()=>{locked=true;lockOri={...cur};body.className='xray locked';lockBtn.classList.add('hidden');setCenter(innerWidth/2,innerHeight*.48);render()};
+setInterval(()=>{if(visible()){const t=Date.now()/1000;scene.style.filter=`drop-shadow(0 0 ${18+Math.sin(t*2)*5}px rgba(245,190,55,.36)) contrast(1.07) saturate(1.12)`}},60);
 </script>
 </body>
 </html>
