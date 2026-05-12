@@ -3,48 +3,93 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-<title>FridgeXR v7</title>
+<title>FridgeXR v8</title>
 <style>
-:root{--gold:#f1c64c;--ink:#050505}*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}#cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000}.fx{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .18s ease}.xray .fx.ready{opacity:1}#softErase{background:radial-gradient(ellipse at var(--cx,50%) var(--cy,50%),rgba(218,218,205,.24) 0%,rgba(218,218,205,.19) 21%,rgba(218,218,205,.10) 39%,rgba(218,218,205,0) 62%);mix-blend-mode:screen;filter:blur(7px)}#glass{background:radial-gradient(ellipse at var(--cx,50%) var(--cy,50%),rgba(255,255,255,.18),rgba(255,255,255,.05) 34%,rgba(255,255,255,0) 61%),linear-gradient(105deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.22) 47%,rgba(255,255,255,0) 58%);mix-blend-mode:screen;opacity:0}.xray #glass.ready{opacity:.55}#scene{position:fixed;left:var(--cx,50%);top:var(--cy,50%);width:min(58vw,430px);height:min(76vh,680px);transform:translate(-50%,-50%);pointer-events:none;opacity:0;transition:opacity .18s ease,filter .18s ease;filter:drop-shadow(0 0 18px rgba(245,190,55,.36)) contrast(1.07) saturate(1.12)}.xray #scene.ready{opacity:.88}.layer{position:absolute;left:50%;top:50%;max-width:none;transform-origin:center;will-change:transform}.glow{width:115%;opacity:.55;mix-blend-mode:screen}.main{width:100%;opacity:.92}.alt{width:86%;opacity:.24;mix-blend-mode:screen;filter:blur(.35px)}#vignette{background:radial-gradient(circle at var(--cx,50%) var(--cy,50%),rgba(255,220,90,0) 0%,rgba(0,0,0,0) 45%,rgba(0,0,0,.18) 100%);opacity:0}.xray #vignette.ready{opacity:1}#ui{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom));z-index:20;display:flex;justify-content:center;gap:12px;padding:0 16px}.btn{border:0;border-radius:999px;padding:16px 25px;font-size:18px;font-weight:800;background:rgba(20,20,20,.62);color:white;backdrop-filter:blur(14px);box-shadow:0 8px 26px rgba(0,0,0,.35)}.btn.gold{background:linear-gradient(#ffd95b,#c9961b);color:#111}.hidden{display:none}#top{position:fixed;top:calc(14px + env(safe-area-inset-top));left:14px;right:14px;z-index:20;display:flex;gap:10px;align-items:center;justify-content:space-between}.pill{padding:10px 14px;border-radius:999px;background:rgba(0,0,0,.54);color:#fff;backdrop-filter:blur(14px);font-size:15px}#reticle{position:fixed;left:50%;top:48%;width:min(54vw,400px);height:min(66vh,620px);transform:translate(-50%,-50%);border:2px dashed rgba(255,214,83,.75);border-radius:46%/8%;opacity:.0;pointer-events:none;z-index:12}.armed #reticle{opacity:.75}.locked #reticle{opacity:.18;border-style:solid}.hint{position:fixed;left:16px;right:16px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:20;text-align:center;color:white;text-shadow:0 2px 12px #000;font-size:15px;line-height:1.25;opacity:.95}.locked .hint{opacity:.0}.lost .hint{opacity:.95}#debug{display:none}</style>
+:root{
+  --cx:50%; --cy:50%; --w:min(49vw,360px); --h:min(56vh,520px);
+  --gold:#f4c84f;
+}
+*{box-sizing:border-box} html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;touch-action:none}
+#cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+#eraseCanvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity .15s ease;filter:blur(.25px)}
+#scene{position:fixed;left:var(--cx);top:var(--cy);width:var(--w);height:var(--h);transform:translate(-50%,-50%);pointer-events:none;opacity:0;transition:opacity .16s ease;filter:drop-shadow(0 0 18px rgba(255,203,62,.38)) contrast(1.08) saturate(1.18)}
+.layer{position:absolute;left:50%;top:50%;max-width:none;transform-origin:center;will-change:transform}.glow{width:118%;opacity:.38;mix-blend-mode:screen}.photo{width:100%;opacity:.96}.alt{width:86%;opacity:.18;mix-blend-mode:screen;filter:blur(.4px)}
+#glass{position:fixed;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse at var(--cx) var(--cy),rgba(255,230,120,.12),rgba(255,255,255,.06) 28%,rgba(255,255,255,0) 52%),linear-gradient(110deg,rgba(255,255,255,0) 33%,rgba(255,255,255,.22) 48%,rgba(255,255,255,0) 56%);mix-blend-mode:screen;transition:opacity .15s ease}.show #glass{opacity:.45}.show #eraseCanvas{opacity:1}.show #scene{opacity:.91}
+#ui{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom));z-index:20;display:flex;justify-content:center;gap:12px;padding:0 16px}.btn{border:0;border-radius:999px;padding:16px 25px;font-size:18px;font-weight:850;background:rgba(20,20,20,.62);color:white;backdrop-filter:blur(14px);box-shadow:0 8px 26px rgba(0,0,0,.35)}.btn.gold{background:linear-gradient(#ffdc62,#c99516);color:#111}
+#top{position:fixed;top:calc(14px + env(safe-area-inset-top));left:14px;right:14px;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:10px}.pill{padding:10px 14px;border-radius:999px;background:rgba(0,0,0,.54);color:#fff;backdrop-filter:blur(14px);font-size:15px}.hidden{display:none!important}
+#reticle{position:fixed;left:50%;top:48%;width:min(49vw,360px);height:min(58vh,540px);transform:translate(-50%,-50%);border:2px dashed rgba(255,214,83,.75);border-radius:44%/7%;opacity:0;pointer-events:none;z-index:12}.armed #reticle{opacity:.72}.locked #reticle{opacity:.14;border-style:solid}
+#anchor{position:fixed;left:var(--cx);top:calc(var(--cy) - min(29vh,270px));width:min(26vw,190px);height:3px;transform:translateX(-50%);background:linear-gradient(90deg,rgba(255,215,85,0),rgba(255,225,105,.5),rgba(255,215,85,0));opacity:0;pointer-events:none}.show #anchor{opacity:.75}
+#tune{position:fixed;right:12px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:25;background:rgba(0,0,0,.48);color:#fff;border-radius:14px;border:1px solid rgba(255,255,255,.18);padding:9px 10px;font-size:12px;opacity:.55}.panel{position:fixed;left:12px;right:12px;bottom:calc(138px + env(safe-area-inset-bottom));background:rgba(10,10,10,.72);border:1px solid rgba(255,255,255,.16);border-radius:18px;padding:12px;z-index:30;color:#fff;backdrop-filter:blur(14px)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.small{font-size:12px;color:#ddd}input[type=range]{width:100%;accent-color:#f4c84f}
+</style>
 </head>
 <body>
 <video id="cam" autoplay playsinline muted></video>
-<div id="softErase" class="fx"></div>
-<div id="glass" class="fx"></div>
+<canvas id="eraseCanvas"></canvas>
+<div id="glass"></div>
 <div id="scene">
-  <img class="layer glow" src="assets/chandelier_glow.png">
-  <img class="layer alt altA" src="assets/chandelier_alt_a.png">
-  <img class="layer main" src="assets/chandelier_photo.png">
-  <img class="layer alt altB" src="assets/chandelier_alt_b.png">
+  <img class="layer glow" src="assets/chandelier_glow.png" alt="">
+  <img class="layer alt altA" src="assets/chandelier_alt_a.png" alt="">
+  <img class="layer photo" src="assets/chandelier_photo.png" alt="">
+  <img class="layer alt altB" src="assets/chandelier_alt_b.png" alt="">
 </div>
-<div id="vignette" class="fx"></div>
+<div id="anchor"></div>
 <div id="reticle"></div>
 <div id="top"><div id="status" class="pill">LIVE</div><button id="lock" class="btn hidden">LOCK ON FRIDGE</button></div>
-<div class="hint" id="hint">Press XRAY, point at the closed fridge, then tap LOCK. The cutaway appears only while you keep looking at that direction.</div>
+<button id="tune" class="hidden">tune</button>
+<div id="panel" class="panel hidden">
+  <div class="grid">
+    <label class="small">left/right <input id="offX" type="range" min="-20" max="20" value="0"></label>
+    <label class="small">up/down <input id="offY" type="range" min="-20" max="20" value="-4"></label>
+    <label class="small">size <input id="size" type="range" min="70" max="130" value="92"></label>
+    <label class="small">tilt <input id="tilt" type="range" min="-18" max="18" value="-5"></label>
+  </div>
+</div>
 <div id="ui"><button id="live" class="btn">LIVE</button><button id="xray" class="btn gold">XRAY</button></div>
 <script>
-const body=document.body, statusEl=document.getElementById('status'), lockBtn=document.getElementById('lock');
-const scene=document.getElementById('scene'), layers=[...document.querySelectorAll('.layer')], fx=[...document.querySelectorAll('.fx'),scene];
-let mode='live', locked=false, lockOri=null, cur={a:0,b:0,g:0}, lastPointer={x:innerWidth/2,y:innerHeight/2}, ready=false;
+const body=document.body, cam=document.getElementById('cam'), cv=document.getElementById('eraseCanvas'), ctx=cv.getContext('2d');
+const statusEl=document.getElementById('status'), lockBtn=document.getElementById('lock'), scene=document.getElementById('scene'), layers=[...document.querySelectorAll('.layer')];
+const controls={offX:document.getElementById('offX'),offY:document.getElementById('offY'),size:document.getElementById('size'),tilt:document.getElementById('tilt')};
+let mode='live', locked=false, lockOri=null, cur={a:0,b:0,g:0}, center={x:.50,y:.49}, lastVisible=false;
+function resize(){cv.width=Math.round(innerWidth*devicePixelRatio);cv.height=Math.round(innerHeight*devicePixelRatio);ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)} resize(); addEventListener('resize',resize);
 async function camera(){try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});cam.srcObject=s;}catch(e){statusEl.textContent='CAMERA BLOCKED';alert('Camera needs HTTPS and permission. '+e.message)}}camera();
 async function enableMotion(){try{if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){await DeviceOrientationEvent.requestPermission();}}catch(e){}}
-window.addEventListener('deviceorientation',e=>{cur={a:e.alpha||0,b:e.beta||0,g:e.gamma||0};render();});
-window.addEventListener('pointermove',e=>{lastPointer={x:e.clientX,y:e.clientY}; if(!locked) setCenter(e.clientX,e.clientY); render();});
-function setCenter(x,y){document.documentElement.style.setProperty('--cx',(x/innerWidth*100)+'%');document.documentElement.style.setProperty('--cy',(y/innerHeight*100)+'%')}
+addEventListener('deviceorientation',e=>{cur={a:e.alpha||0,b:e.beta||0,g:e.gamma||0};render();});
 function deltaAngle(a,b){let d=Math.abs(a-b)%360;return d>180?360-d:d}
-function visible(){if(mode!=='xray'||!locked)return false;if(!lockOri)return false;const dA=deltaAngle(cur.a,lockOri.a), dB=Math.abs(cur.b-lockOri.b), dG=Math.abs(cur.g-lockOri.g);return dA<18&&dB<16&&dG<18}
-function render(){const ok=visible();fx.forEach(el=>el.classList.toggle('ready',ok));body.classList.toggle('lost',mode==='xray'&&locked&&!ok);if(mode==='xray'&&locked)statusEl.textContent=ok?'XRAY LOCKED':'XRAY: LOOK BACK AT FRIDGE';
- const dx=locked?(cur.g-(lockOri?.g||0))*2.2:(lastPointer.x/innerWidth-.5)*34; const dy=locked?(cur.b-(lockOri?.b||0))*1.15:(lastPointer.y/innerHeight-.5)*34; const z=1.03+Math.min(Math.abs(dx)*.0025,.08); const rot=dx*.05;
- scene.style.transform=`translate(-50%,-50%) translate(${dx}px,${dy}px) scale(${z}) rotate(${rot}deg)`;
- layers[0].style.transform=`translate(-50%,-50%) translate(${-dx*.65}px,${-dy*.45}px) scale(1.16)`;
- layers[1].style.transform=`translate(-50%,-50%) translate(${-dx*.38}px,${-dy*.22}px) scale(.98)`;
- layers[2].style.transform=`translate(-50%,-50%) translate(${-dx*.18}px,${-dy*.10}px) scale(1.0)`;
- layers[3].style.transform=`translate(-50%,-50%) translate(${dx*.18}px,${dy*.10}px) scale(.88)`;
+function visible(){if(mode!=='xray'||!locked||!lockOri)return false;return deltaAngle(cur.a,lockOri.a)<18 && Math.abs(cur.b-lockOri.b)<16 && Math.abs(cur.g-lockOri.g)<18}
+function setCSSCenter(x,y){document.documentElement.style.setProperty('--cx',(x*100)+'%');document.documentElement.style.setProperty('--cy',(y*100)+'%')}
+function updateSize(){const s=Number(controls.size.value)/100;document.documentElement.style.setProperty('--w',`min(${49*s}vw,${360*s}px)`);document.documentElement.style.setProperty('--h',`min(${56*s}vh,${520*s}px)`)}
+Object.values(controls).forEach(el=>el.addEventListener('input',()=>{updateSize();render();}));
+document.getElementById('tune').onclick=()=>document.getElementById('panel').classList.toggle('hidden');
+function render(){const ok=visible();lastVisible=ok;body.classList.toggle('show',ok);body.classList.toggle('lost',mode==='xray'&&locked&&!ok);if(mode==='xray'&&locked)statusEl.textContent=ok?'XRAY LOCKED':'XRAY: LOOK BACK AT FRIDGE';
+  const ox=Number(controls.offX.value)/100, oy=Number(controls.offY.value)/100; center={x:.50+ox,y:.49+oy}; setCSSCenter(center.x,center.y); updateSize();
+  const dg=locked?(cur.g-lockOri.g):0, db=locked?(cur.b-lockOri.b):0; const px=dg*1.9, py=db*.95; const rot=Number(controls.tilt.value)+dg*.08; const z=1.02+Math.min(Math.abs(dg)*.002,.06);
+  scene.style.transform=`translate(-50%,-50%) translate(${px}px,${py}px) scale(${z}) rotate(${rot}deg) perspective(650px) rotateY(${dg*.28}deg) rotateX(${-db*.16}deg)`;
+  layers[0].style.transform=`translate(-50%,-50%) translate(${-px*.55}px,${-py*.38}px) scale(1.13)`;
+  layers[1].style.transform=`translate(-50%,-50%) translate(${-px*.36}px,${-py*.20}px) scale(.98)`;
+  layers[2].style.transform=`translate(-50%,-50%) translate(${-px*.12}px,${-py*.08}px) scale(1.0)`;
+  layers[3].style.transform=`translate(-50%,-50%) translate(${px*.20}px,${py*.12}px) scale(.88)`;
 }
-document.getElementById('xray').onclick=async()=>{await enableMotion();mode='xray';locked=false;lockOri=null;body.className='armed xray';statusEl.textContent='XRAY ARMED';lockBtn.classList.remove('hidden');render()};
-document.getElementById('live').onclick=()=>{mode='live';locked=false;body.className='';statusEl.textContent='LIVE';lockBtn.classList.add('hidden');fx.forEach(el=>el.classList.remove('ready'))};
-lockBtn.onclick=()=>{locked=true;lockOri={...cur};body.className='xray locked';lockBtn.classList.add('hidden');setCenter(innerWidth/2,innerHeight*.48);render()};
-setInterval(()=>{if(visible()){const t=Date.now()/1000;scene.style.filter=`drop-shadow(0 0 ${18+Math.sin(t*2)*5}px rgba(245,190,55,.36)) contrast(1.07) saturate(1.12)`}},60);
+function drawErase(){ctx.clearRect(0,0,innerWidth,innerHeight); if(!lastVisible || cam.readyState<2){requestAnimationFrame(drawErase);return;}
+  const w=Math.min(innerWidth*.50,370)*Number(controls.size.value)/100; const h=Math.min(innerHeight*.60,555)*Number(controls.size.value)/100; const x=innerWidth*center.x-w/2; const y=innerHeight*center.y-h/2;
+  // Softly paint over the OVC/can region with a live-sampled wall-like patch from the right/background side.
+  ctx.save(); ctx.beginPath(); roundRect(ctx,x,y,w,h,Math.min(w*.18,46)); ctx.clip();
+  ctx.globalAlpha=.72; ctx.filter='blur(10px) saturate(.85) brightness(1.18)';
+  try{ctx.drawImage(cam,innerWidth*.70,innerHeight*.20,innerWidth*.24,innerHeight*.66,x-30,y-24,w+60,h+48);}catch(e){}
+  ctx.filter='blur(22px) saturate(.75) brightness(1.10)'; ctx.globalAlpha=.35;
+  try{ctx.drawImage(cam,innerWidth*.52,innerHeight*.15,innerWidth*.42,innerHeight*.75,x-20,y-20,w+40,h+40);}catch(e){}
+  ctx.restore();
+  // Very soft edge so it reads as transparent glass, not a portal.
+  const g=ctx.createRadialGradient(innerWidth*center.x,innerHeight*center.y,w*.10,innerWidth*center.x,innerHeight*center.y,w*.70);
+  g.addColorStop(0,'rgba(255,230,120,0.02)'); g.addColorStop(.64,'rgba(255,230,120,0.08)'); g.addColorStop(1,'rgba(255,230,120,0)');
+  ctx.fillStyle=g; ctx.fillRect(x-w*.2,y-h*.2,w*1.4,h*1.4);
+  requestAnimationFrame(drawErase);
+}
+function roundRect(c,x,y,w,h,r){c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r)}
+drawErase();
+document.getElementById('xray').onclick=async()=>{await enableMotion();mode='xray';locked=false;lockOri=null;body.className='armed';statusEl.textContent='XRAY ARMED';lockBtn.classList.remove('hidden');document.getElementById('tune').classList.add('hidden');render()};
+document.getElementById('live').onclick=()=>{mode='live';locked=false;lockOri=null;body.className='';statusEl.textContent='LIVE';lockBtn.classList.add('hidden');document.getElementById('tune').classList.add('hidden');document.getElementById('panel').classList.add('hidden');render()};
+lockBtn.onclick=()=>{locked=true;lockOri={...cur};body.className='locked';lockBtn.classList.add('hidden');document.getElementById('tune').classList.remove('hidden');render()};
+setInterval(()=>{if(visible()){const t=Date.now()/1000;scene.style.filter=`drop-shadow(0 0 ${17+Math.sin(t*2)*4}px rgba(255,203,62,.36)) contrast(1.08) saturate(1.18)`}},80);
 </script>
 </body>
 </html>
