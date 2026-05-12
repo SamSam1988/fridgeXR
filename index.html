@@ -1,97 +1,107 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Dilution Fridge Strip AR</title>
-  <style>
-    :root { --bg:#050607; --panel:#121722dd; --text:#fff8e8; --muted:#c9c0ad; --gold:#d8aa3b; --mirror:1; }
-    * { box-sizing:border-box; }
-    html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,sans-serif; overflow:hidden; }
-    #stage { position:fixed; inset:0; background:#000; touch-action:none; }
-    video, #stripLayer, #dimLayer, #frameLayer { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-    video { transform:scaleX(var(--mirror)); }
-    #dimLayer { pointer-events:none; background:rgba(0,0,0,.0); }
-    #stripLayer { pointer-events:none; overflow:hidden; }
-    #stripWindow { position:absolute; left:50%; top:50%; width:62vw; height:70vh; transform:translate(-50%,-50%) rotate(0deg); border-radius:18px; overflow:hidden; background:#050607; box-shadow:0 0 0 9999px rgba(0,0,0,.18), inset 0 0 34px rgba(255,210,100,.22); }
-    #stripWindow img { position:absolute; left:50%; top:50%; width:100%; height:100%; object-fit:contain; transform:translate(-50%,-50%) scale(1); transform-origin:center; filter:saturate(1.18) contrast(1.08) brightness(1.02); }
-    #frameLayer { pointer-events:none; }
-    #outline { position:absolute; left:50%; top:50%; width:62vw; height:70vh; transform:translate(-50%,-50%) rotate(0deg); border:2px solid rgba(255,210,90,.72); border-radius:18px; box-shadow:0 0 18px rgba(255,190,60,.25); }
-    .top { position:fixed; left:12px; right:12px; top:12px; display:flex; gap:8px; justify-content:space-between; align-items:center; }
-    .badge { background:#121722cc; border:1px solid #ffffff25; border-radius:999px; padding:8px 12px; font-weight:800; backdrop-filter:blur(14px); }
-    button, select { appearance:none; border:1px solid #ffffff30; background:#202735; color:var(--text); border-radius:12px; padding:10px 12px; font-weight:750; }
-    button.primary { background:linear-gradient(180deg,#ffd66f,#b8861d); color:#1c1302; border-color:#ffe7a555; }
-    .panel { position:fixed; left:10px; right:10px; bottom:10px; max-height:52vh; overflow:auto; background:var(--panel); border:1px solid #ffffff24; border-radius:18px; padding:12px; backdrop-filter:blur(16px); box-shadow:0 12px 45px #0009; }
-    .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 14px; }
-    label { display:grid; gap:5px; font-size:12px; color:var(--muted); }
-    input[type=range] { width:100%; accent-color:var(--gold); }
-    .row { display:flex; gap:8px; margin-top:10px; }
-    .row>* { flex:1; }
-    .hint { font-size:12px; color:var(--muted); line-height:1.35; margin-top:8px; }
-    @media (min-width:800px) { .panel { left:auto; width:455px; } }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>FridgeXR</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#050607;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:white;touch-action:none}
+  #video,#xray,#glass{position:fixed;inset:0;width:100%;height:100%;object-fit:cover}
+  #video{background:#111}
+  #xray{opacity:0;transition:opacity .45s ease;pointer-events:none}
+  body.on #xray{opacity:1}
+  #glass{pointer-events:none;background:radial-gradient(ellipse at 50% 42%,transparent 0 38%,rgba(0,0,0,.38) 78%,rgba(0,0,0,.72));mix-blend-mode:multiply;opacity:.5}
+  #start{position:fixed;top:calc(env(safe-area-inset-top) + 14px);left:14px;right:14px;border:0;border-radius:18px;padding:14px 18px;background:#f0c75e;color:#1b1303;font-weight:850;font-size:16px;box-shadow:0 12px 35px #0008;z-index:5}
+  #xbtn{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 26px);transform:translateX(-50%);width:112px;height:112px;border-radius:999px;border:2px solid #ffe7a2;background:radial-gradient(circle at 32% 24%,#fff2b5,#d4971d 58%,#6d4300);color:#1a1000;font-weight:950;font-size:20px;letter-spacing:.5px;box-shadow:0 0 34px #f6c74d88,0 15px 45px #000b;z-index:6}
+  body.on #xbtn{background:radial-gradient(circle at 32% 24%,#ffffff,#7efcff 40%,#1c6eff 78%);color:#001434;border-color:#c9ffff;box-shadow:0 0 44px #5effffcc,0 15px 45px #000b}
+  #hint{position:fixed;left:18px;right:18px;bottom:calc(env(safe-area-inset-bottom) + 150px);text-align:center;font-size:13px;color:#ffffffcc;text-shadow:0 2px 12px #000;z-index:4;pointer-events:none}
+  body.on #hint{opacity:.0;transition:opacity .8s ease}
+  #mini{position:fixed;right:12px;top:calc(env(safe-area-inset-top) + 74px);display:flex;gap:8px;z-index:6}
+  .chip{border:1px solid #ffffff33;background:#10141bcc;color:#fff;border-radius:999px;padding:9px 11px;font-weight:750;backdrop-filter:blur(12px)}
+  #cal{display:none;position:fixed;inset:0;z-index:4;pointer-events:none}
+  body.cal #cal{display:block}
+  #cal:before{content:"";position:absolute;left:12%;right:12%;top:14%;bottom:14%;border:3px dashed #73f9ff;border-radius:14px;box-shadow:0 0 24px #73f9ff99 inset,0 0 24px #73f9ff99}
+</style>
 </head>
 <body>
-  <main id="stage">
-    <video id="camera" autoplay playsinline muted></video>
-    <div id="dimLayer"></div>
-    <div id="stripLayer"><div id="stripWindow"><img id="openFridge" src="assets/front_full.jpg" alt="open fridge interior"></div></div>
-    <div id="frameLayer"><div id="outline"></div></div>
-  </main>
-  <div class="top"><div class="badge">Strip AR / X-ray</div><button id="start" class="primary">Start camera</button></div>
-  <section class="panel">
-    <div class="grid">
-      <label>Mode
-        <select id="mode"><option value="strip">Strip: hide cans</option><option value="ghost">Ghost X-ray</option><option value="calibrate">Calibrate outline</option></select>
-      </label>
-      <label>Open-fridge image
-        <select id="imageChoice"><option value="assets/front_full.jpg">Front full chandelier</option><option value="assets/front_medium.jpg">Front medium</option><option value="assets/detail_wiring.jpg">Wiring/detail</option><option value="assets/detail_bluebox.jpg">Blue box/detail</option></select>
-      </label>
-      <label>Window width <input id="winW" type="range" min="20" max="110" value="62"></label>
-      <label>Window height <input id="winH" type="range" min="20" max="110" value="70"></label>
-      <label>Window X <input id="winX" type="range" min="-50" max="50" value="0"></label>
-      <label>Window Y <input id="winY" type="range" min="-50" max="50" value="0"></label>
-      <label>Window rotate <input id="rot" type="range" min="-25" max="25" value="0"></label>
-      <label>Interior scale <input id="imgScale" type="range" min="60" max="220" value="100"></label>
-      <label>Interior X <input id="imgX" type="range" min="-80" max="80" value="0"></label>
-      <label>Interior Y <input id="imgY" type="range" min="-80" max="80" value="0"></label>
-      <label>Strip opacity <input id="opacity" type="range" min="0" max="100" value="100"></label>
-      <label>Gold / contrast <input id="gold" type="range" min="70" max="180" value="118"></label>
-    </div>
-    <div class="row"><button id="mirror">Mirror</button><button id="hidePanel">Hide controls</button><button id="reset">Reset</button></div>
-    <div class="hint">For the real AR feeling: line the golden outline with the fridge window, then use Strip mode. This masks the live camera inside the window, so the real cans/OVC are not visible there.</div>
-  </section>
+<video id="video" autoplay playsinline muted></video>
+<canvas id="xray"></canvas>
+<div id="glass"></div>
+<div id="cal"></div>
+<button id="start">Start camera</button>
+<div id="mini"><button class="chip" id="align">frame</button><button class="chip" id="fs">full</button></div>
+<div id="hint">Point at the fridge window, then press XRAY. Move the phone: the chandelier view shifts instead of staying flat.</div>
+<button id="xbtn">XRAY</button>
 <script>
-const $=id=>document.getElementById(id);
-const video=$('camera'), win=$('stripWindow'), outline=$('outline'), img=$('openFridge'), dim=$('dimLayer');
-const controls=['mode','imageChoice','winW','winH','winX','winY','rot','imgScale','imgX','imgY','opacity','gold'].map($);
-let mirrored=false, panel=document.querySelector('.panel');
-async function startCamera(){
-  try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}}, audio:false});
-    video.srcObject=stream;
-  }catch(e){ alert('Camera failed. Deploy over HTTPS, then allow camera access. Details: '+e.message); }
+const video=document.getElementById('video'), canvas=document.getElementById('xray'), ctx=canvas.getContext('2d',{alpha:true});
+const start=document.getElementById('start'), xbtn=document.getElementById('xbtn');
+let on=false, yaw=0, pitch=0, roll=0, dragX=0, dragY=0, last=null, cal=false;
+async function cam(){
+ try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});video.srcObject=s;start.style.display='none';}
+ catch(e){alert('Camera requires HTTPS. Open the GitHub Pages URL, not the raw file. '+e.message)}
 }
-function apply(){
-  const w=$('winW').value, h=$('winH').value, x=$('winX').value, y=$('winY').value, r=$('rot').value;
-  for (const el of [win, outline]) { el.style.width=w+'vw'; el.style.height=h+'vh'; el.style.transform=`translate(calc(-50% + ${x}vw), calc(-50% + ${y}vh)) rotate(${r}deg)`; }
-  img.src=$('imageChoice').value;
-  img.style.transform=`translate(calc(-50% + ${$('imgX').value}%), calc(-50% + ${$('imgY').value}%)) scale(${$('imgScale').value/100})`;
-  img.style.opacity=$('opacity').value/100;
-  img.style.filter=`saturate(${$('gold').value/100}) contrast(1.08) brightness(1.02)`;
-  const mode=$('mode').value;
-  if(mode==='strip') { win.style.background='#050607'; img.style.mixBlendMode='normal'; outline.style.opacity=.85; dim.style.background='rgba(0,0,0,.05)'; }
-  if(mode==='ghost') { win.style.background='transparent'; img.style.mixBlendMode='screen'; outline.style.opacity=.45; dim.style.background='rgba(0,0,0,.0)'; }
-  if(mode==='calibrate') { win.style.background='transparent'; img.style.mixBlendMode='normal'; img.style.opacity=.28; outline.style.opacity=1; dim.style.background='rgba(0,0,0,.0)'; }
-  localStorage.setItem('fridgeStripSettings', JSON.stringify(Object.fromEntries(controls.map(el=>[el.id,el.value]))));
+start.onclick=cam;
+xbtn.onclick=async()=>{on=!on;document.body.classList.toggle('on',on); if(!video.srcObject) await cam();};
+document.getElementById('align').onclick=()=>{cal=!cal;document.body.classList.toggle('cal',cal)};
+document.getElementById('fs').onclick=()=>document.documentElement.requestFullscreen?.();
+window.addEventListener('deviceorientation',e=>{yaw=(e.gamma||0)/35; pitch=(e.beta||0-55)/45; roll=(e.alpha||0)/180;},{passive:true});
+window.addEventListener('pointerdown',e=>last=[e.clientX,e.clientY]);
+window.addEventListener('pointermove',e=>{if(!last)return; dragX+=(e.clientX-last[0])/innerWidth*2; dragY+=(e.clientY-last[1])/innerHeight*2; last=[e.clientX,e.clientY];});
+window.addEventListener('pointerup',()=>last=null);
+function resize(){canvas.width=Math.round(innerWidth*devicePixelRatio);canvas.height=Math.round(innerHeight*devicePixelRatio);ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}
+addEventListener('resize',resize); resize();
+function project(x,y,z){
+ const W=innerWidth,H=innerHeight;
+ const ax=(yaw+dragX)*0.45, ay=(pitch+dragY)*0.32;
+ let X=x+z*ax, Y=y-z*ay, Z=3.2+z;
+ const f=Math.min(W,H)*0.92;
+ return [W/2 + X*f/Z, H*0.48 + Y*f/Z, f/Z];
 }
-function restore(){ try{ const s=JSON.parse(localStorage.getItem('fridgeStripSettings')||'{}'); for(const [k,v] of Object.entries(s)) if($(k)) $(k).value=v; }catch{} apply(); }
-controls.forEach(el=>el.addEventListener('input',apply));
-$('start').onclick=startCamera;
-$('mirror').onclick=()=>{ mirrored=!mirrored; document.documentElement.style.setProperty('--mirror', mirrored?-1:1); };
-$('hidePanel').onclick=()=>{ panel.style.display='none'; setTimeout(()=>{ if(confirm('Show controls again?')) panel.style.display='block'; }, 100); };
-$('reset').onclick=()=>{ localStorage.removeItem('fridgeStripSettings'); location.reload(); };
-restore();
+function plate(y,z,r,thick){
+ const [cx,cy,s]=project(0,y,z), rx=r*s, ry=r*s*.21;
+ ctx.save(); ctx.translate(cx,cy); ctx.scale(1,0.22); ctx.beginPath(); ctx.ellipse(0,0,rx,rx,0,0,Math.PI*2); ctx.fillStyle='rgba(217,165,42,.96)'; ctx.fill(); ctx.lineWidth=Math.max(2,thick*s); ctx.strokeStyle='rgba(255,226,124,.95)'; ctx.stroke(); ctx.lineWidth=Math.max(1,thick*s*.32); ctx.strokeStyle='rgba(96,60,0,.7)'; ctx.stroke();
+ for(let i=0;i<42;i++){let a=i*Math.PI*2/42; let rr=rx*(.78+(i%2)*.08); ctx.beginPath(); ctx.arc(Math.cos(a)*rr,Math.sin(a)*rr,Math.max(1.4,2.8*s),0,7); ctx.fillStyle='rgba(90,55,0,.75)'; ctx.fill();}
+ ctx.restore();
+ ctx.beginPath(); ctx.ellipse(cx,cy,rx,ry,0,0,7); ctx.strokeStyle='rgba(255,245,190,.18)'; ctx.lineWidth=7; ctx.stroke();
+}
+function rod(x,z){
+ const a=project(x,-1.05,z), b=project(x,1.15,z+.05); ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.lineWidth=Math.max(2,5*a[2]/240); ctx.strokeStyle='rgba(245,205,94,.94)'; ctx.stroke();
+}
+function wire(x1,y1,z1,x2,y2,z2,c){
+ const a=project(x1,y1,z1), b=project((x1+x2)/2,y1-.35,z1+.2), d=project(x2,y2,z2); ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.quadraticCurveTo(b[0],b[1],d[0],d[1]); ctx.lineWidth=1.2; ctx.strokeStyle=c; ctx.stroke();
+}
+function box(x,y,z,w,h,c){
+ const p=project(x,y,z), s=p[2]; ctx.save(); ctx.translate(p[0],p[1]); ctx.rotate((yaw+dragX)*.12); ctx.fillStyle=c; ctx.strokeStyle='rgba(255,221,99,.9)'; ctx.lineWidth=2; ctx.roundRect(-w*s/2,-h*s/2,w*s,h*s,8); ctx.fill(); ctx.stroke(); ctx.restore();
+}
+function draw(){
+ ctx.clearRect(0,0,innerWidth,innerHeight);
+ const W=innerWidth,H=innerHeight;
+ // X-ray window mask: the camera view is replaced only inside this aperture.
+ ctx.save();
+ ctx.beginPath(); ctx.roundRect(W*.10,H*.11,W*.80,H*.72,18); ctx.clip();
+ const g=ctx.createRadialGradient(W*.5,H*.38,20,W*.5,H*.42,Math.max(W,H)*.55);
+ g.addColorStop(0,'rgba(18,20,17,.99)'); g.addColorStop(.55,'rgba(8,9,8,.97)'); g.addColorStop(1,'rgba(0,0,0,.88)'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+ ctx.globalCompositeOperation='lighter';
+ for(let i=0;i<70;i++){wire((Math.random()-.5)*1.5,-.8,Math.random()*1.1,(Math.random()-.5)*1.7,.35,Math.random()*1.1,['rgba(80,160,255,.28)','rgba(255,220,80,.22)','rgba(230,230,230,.18)'][i%3])}
+ ctx.globalCompositeOperation='source-over';
+ [-.82,-.42,.02,.46,.88].forEach((x,i)=>rod(x,(i%2)*.45+.15));
+ plate(-.92,.08,1.18,2.2); plate(-.43,.35,1.02,1.8); plate(.04,.15,.88,1.5); plate(.48,.55,.66,1.3);
+ box(-.34,-.1,.12,.42,.55,'rgba(16,43,78,.95)'); box(.32,-.05,.2,.34,.5,'rgba(20,32,52,.94)');
+ for(let i=0;i<36;i++){let x=-.82+i*.047; wire(x,-.78,.05,x*.6,.36,.55,i%3==0?'rgba(65,155,255,.75)':'rgba(235,220,150,.55)')}
+ // lower golden mixing-chamber suggestion, no large silver cans
+ plate(.92,.45,.42,1.2); for(let i=0;i<10;i++)rod((i-4.5)*.08,.62);
+ // glass reflections preserved
+ ctx.globalCompositeOperation='screen';
+ ctx.strokeStyle='rgba(255,255,255,.25)'; ctx.lineWidth=2; for(let i=0;i<4;i++){ctx.beginPath(); ctx.moveTo(W*(.16+i*.18),H*.12); ctx.lineTo(W*(.42+i*.12),H*.83); ctx.stroke();}
+ ctx.globalCompositeOperation='source-over';
+ const fade=ctx.createLinearGradient(0,H*.1,0,H*.84); fade.addColorStop(0,'rgba(255,215,85,.05)'); fade.addColorStop(.5,'rgba(255,215,85,.0)'); fade.addColorStop(1,'rgba(0,0,0,.35)'); ctx.fillStyle=fade; ctx.fillRect(0,0,W,H);
+ ctx.restore();
+ // aperture border
+ ctx.strokeStyle='rgba(126,252,255,.23)'; ctx.lineWidth=2; ctx.strokeRect(W*.10,H*.11,W*.80,H*.72);
+ requestAnimationFrame(draw);
+}
+CanvasRenderingContext2D.prototype.roundRect ??= function(x,y,w,h,r){this.beginPath();this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath();return this};
+draw();
 </script>
 </body>
 </html>
