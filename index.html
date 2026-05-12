@@ -1,171 +1,94 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>fridgeXR v14</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>fridgeXR v15</title>
 <style>
   html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;touch-action:none}
   #cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000;z-index:0}
-  #ar{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
-  #badge{position:fixed;left:16px;top:calc(14px + env(safe-area-inset-top));z-index:5;padding:12px 16px;border-radius:999px;background:rgba(0,0,0,.46);color:#fff;font-weight:900;font-size:18px;backdrop-filter:blur(12px)}
-  body.xr #badge{color:#ffd84f;border:1px solid rgba(255,216,79,.35)}
-  #hint{position:fixed;right:14px;top:calc(14px + env(safe-area-inset-top));z-index:5;padding:10px 14px;border-radius:999px;background:rgba(0,0,0,.42);color:#fff;font-size:15px;font-weight:800;backdrop-filter:blur(12px)}
-  body.xr #hint{display:none}
-  #ui{position:fixed;left:0;right:0;bottom:calc(22px + env(safe-area-inset-bottom));display:flex;justify-content:center;z-index:5;pointer-events:auto}
-  #xray{border:0;border-radius:999px;background:linear-gradient(#ffdd67,#d6a51c);color:#17120a;font-size:28px;font-weight:1000;letter-spacing:.03em;padding:19px 56px;box-shadow:0 12px 38px rgba(0,0,0,.40)}
-  body.xr #xray{background:linear-gradient(#fff0a6,#e0b631)}
-  #start{position:fixed;inset:auto 20px calc(105px + env(safe-area-inset-bottom)) 20px;z-index:6;border:0;border-radius:18px;background:#111;color:#fff;padding:16px;font-size:19px;font-weight:800;display:none}
-  #probe{display:none}
+  #dress{position:fixed;left:50%;top:48%;width:44vw;height:55vh;transform:translate(-50%,-50%);z-index:3;pointer-events:none;opacity:0;transition:opacity .18s ease, left .18s ease, top .18s ease, width .18s ease, height .18s ease, transform .18s ease;overflow:hidden;border-radius:48% 48% 18% 18%/10% 10% 8% 8%;filter:contrast(1.05) saturate(1.15) drop-shadow(0 0 18px rgba(255,190,45,.18));}
+  #dress::before{content:"";position:absolute;inset:-2%;background:rgba(200,200,190,.12);backdrop-filter:blur(8px) saturate(.55) brightness(1.12);border:1px solid rgba(255,220,100,.16);border-radius:inherit;}
+  #fridge{position:absolute;left:50%;top:51%;width:115%;height:110%;object-fit:contain;transform:translate(-50%,-50%);mix-blend-mode:multiply;filter:saturate(1.35) contrast(1.16) brightness(1.08);opacity:.96;}
+  #gold{position:absolute;inset:0;background:radial-gradient(ellipse at center, rgba(255,196,42,.15), transparent 55%);mix-blend-mode:screen}
+  #topLine{position:fixed;left:28%;top:23%;width:44%;height:3px;background:rgba(255,215,70,.75);box-shadow:0 0 14px rgba(255,215,70,.75);z-index:4;opacity:0;transition:opacity .18s ease}
+  .on #dress,.on #topLine{opacity:1}
+  #status{position:fixed;left:14px;top:14px;z-index:10;background:rgba(0,0,0,.52);color:#fff;border-radius:999px;padding:11px 15px;font-weight:800;font-size:16px;backdrop-filter:blur(10px)}
+  .on #status{color:#ffd84b;border:1px solid rgba(255,216,75,.32)}
+  #hint{position:fixed;right:14px;top:14px;z-index:10;background:rgba(0,0,0,.48);color:#fff;border-radius:999px;padding:11px 15px;font-weight:700;font-size:15px;backdrop-filter:blur(10px);max-width:58vw;text-align:center}
+  #controls{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom));z-index:10;display:flex;justify-content:center;gap:14px;align-items:center}
+  button{border:0;border-radius:999px;padding:18px 38px;font-size:25px;font-weight:900;letter-spacing:.5px;background:linear-gradient(#ffe06c,#d69b1e);color:#111;box-shadow:0 10px 30px rgba(0,0,0,.38)}
+  button.secondary{background:rgba(0,0,0,.55);color:white;font-size:20px;padding:17px 30px}
+  #fine{position:fixed;right:12px;top:120px;display:none;flex-direction:column;gap:9px;z-index:11}.on #fine{display:flex}
+  #fine button{width:54px;height:54px;padding:0;font-size:26px;background:rgba(0,0,0,.48);color:#fff}
+  canvas{display:none}
 </style>
 </head>
 <body>
 <video id="cam" autoplay playsinline muted></video>
-<canvas id="ar"></canvas>
-<canvas id="probe" width="180" height="260"></canvas>
-<img id="our" src="assets/our_fridge.jpg" style="display:none" />
-<div id="badge">LIVE</div>
-<div id="hint">camera view</div>
-<button id="start">Start camera</button>
-<div id="ui"><button id="xray">XRAY</button></div>
+<div id="dress"><img id="fridge" src="assets/our_fridge.jpg"><div id="gold"></div></div>
+<div id="topLine"></div>
+<div id="status">LIVE</div><div id="hint">press XRAY</div>
+<div id="fine"><button data-k="up">↑</button><button data-k="down">↓</button><button data-k="left">←</button><button data-k="right">→</button><button data-k="plus">+</button><button data-k="minus">−</button></div>
+<div id="controls"><button class="secondary" id="live">LIVE</button><button id="xray">XRAY</button></div>
+<canvas id="scan" width="96" height="160"></canvas>
 <script>
-const video=document.getElementById('cam');
-const ar=document.getElementById('ar');
-const ctx=ar.getContext('2d');
-const probe=document.getElementById('probe');
-const pctx=probe.getContext('2d',{willReadFrequently:true});
-const our=document.getElementById('our');
-const badge=document.getElementById('badge');
-const startBtn=document.getElementById('start');
-const body=document.body;
-let xr=false, running=false, frame=0;
-let box={cx:.50,cy:.50,w:.38,h:.58,conf:0};
-let target={...box};
-let orient={g:0,b:55};
-
-function sizeCanvas(){ar.width=innerWidth*devicePixelRatio;ar.height=innerHeight*devicePixelRatio;ar.style.width=innerWidth+'px';ar.style.height=innerHeight+'px';ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}
-addEventListener('resize',sizeCanvas); sizeCanvas();
-
+const video=document.getElementById('cam'), dress=document.getElementById('dress'), topLine=document.getElementById('topLine');
+const statusEl=document.getElementById('status'), hint=document.getElementById('hint'), scan=document.getElementById('scan'), ctx=scan.getContext('2d',{willReadFrequently:true});
+let on=false, manual=false, state={cx:.50, cy:.52, w:.45, h:.58, rot:0};
+let offset={x:0,y:0,s:1};
 async function startCamera(){
   try{
-    const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
-    video.srcObject=s; running=true; startBtn.style.display='none'; badge.textContent=xr?'XRAY ON':'LIVE';
-  }catch(e){startBtn.style.display='block'; badge.textContent='CAMERA NEEDED';}
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
+    video.srcObject=stream;
+  }catch(e){
+    hint.textContent='camera blocked: use https and allow camera';
+  }
 }
-startBtn.onclick=startCamera; startCamera();
-
-document.getElementById('xray').onclick=()=>{xr=!xr;body.classList.toggle('xr',xr);badge.textContent=xr?'XRAY ON':'LIVE'};
-addEventListener('deviceorientation',e=>{orient.g=e.gamma||0; orient.b=e.beta||55});
-
-function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
-function lerp(a,b,t){return a+(b-a)*t}
-
+startCamera();
+function setOn(v){on=v;document.body.classList.toggle('on',on);statusEl.textContent=on?'XRAY ON':'LIVE';hint.textContent=on?'auto-dressing closed can':'press XRAY';}
+document.getElementById('xray').onclick=()=>setOn(!on);document.getElementById('live').onclick=()=>setOn(false);
+function apply(){
+ const vw=innerWidth,vh=innerHeight;
+ const w=state.w*vw*offset.s, h=state.h*vh*offset.s;
+ const x=state.cx*vw+offset.x, y=state.cy*vh+offset.y;
+ dress.style.width=w+'px'; dress.style.height=h+'px'; dress.style.left=x+'px'; dress.style.top=y+'px';
+ dress.style.transform=`translate(-50%,-50%) perspective(700px) rotateY(${state.rot}deg) rotateX(-2deg)`;
+ topLine.style.left=(x-w*.47)+'px'; topLine.style.width=(w*.94)+'px'; topLine.style.top=(y-h*.49)+'px';
+}
 function detectCan(){
-  if(video.readyState<2) return null;
-  const W=probe.width,H=probe.height;
-  pctx.drawImage(video,0,0,W,H);
-  const data=pctx.getImageData(0,0,W,H).data;
-  let rows=new Array(H).fill(0), cols=new Array(W).fill(0), total=0;
-  for(let y=Math.floor(H*.16);y<Math.floor(H*.88);y++){
-    for(let x=Math.floor(W*.10);x<Math.floor(W*.92);x++){
-      const i=(y*W+x)*4,r=data[i],g=data[i+1],b=data[i+2];
-      const max=Math.max(r,g,b),min=Math.min(r,g,b),sat=(max-min)/(max+1),val=max/255;
-      // Silver/gray OVC: low saturation, mid/high brightness. Avoid pure white walls by requiring some local contrast later.
-      if(sat<.18 && val>.30 && val<.86){
-        rows[y]++; cols[x]++; total++;
-      }
-    }
-  }
-  if(total<800) return null;
-  const colThresh=H*.075, rowThresh=W*.07;
-  let minX=0,maxX=W-1,minY=0,maxY=H-1;
-  while(minX<W && cols[minX]<colThresh) minX++;
-  while(maxX>0 && cols[maxX]<colThresh) maxX--;
-  while(minY<H && rows[minY]<rowThresh) minY++;
-  while(maxY>0 && rows[maxY]<rowThresh) maxY--;
-  const ww=(maxX-minX)/W, hh=(maxY-minY)/H;
-  if(ww<.18 || hh<.25) return null;
-  let cx=(minX+maxX)/(2*W), cy=(minY+maxY)/(2*H);
-  // Bias toward physical cryostat: middle-upper, not full wall.
-  ww=clamp(ww*.92,.26,.54); hh=clamp(hh*.95,.42,.72); cx=clamp(cx,.25,.75); cy=clamp(cy,.36,.64);
-  return {cx,cy,w:ww,h:hh,conf:Math.min(1,total/(W*H*.18))};
+ if(!on || manual || video.readyState<2)return;
+ const W=scan.width,H=scan.height; ctx.drawImage(video,0,0,W,H); const d=ctx.getImageData(0,0,W,H).data;
+ let minX=W,maxX=0,minY=H,maxY=0,count=0;
+ // silver OVC: low saturation, mid/high brightness, center-biased, mostly vertical
+ for(let y=18;y<H-12;y++)for(let x=12;x<W-12;x++){
+   const i=(y*W+x)*4,r=d[i],g=d[i+1],b=d[i+2];
+   const max=Math.max(r,g,b),min=Math.min(r,g,b),sat=max-min,br=(r+g+b)/3;
+   const centerBias=1-Math.min(1,Math.abs(x/W-.52)/.42);
+   if(br>78 && br<230 && sat<42 && centerBias>.18){
+     // avoid white wall: require local vertical grey continuity loosely
+     count++; if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)y>maxY&&(maxY=y);
+   }
+ }
+ const bw=maxX-minX,bh=maxY-minY,area=count/(W*H);
+ if(count>900 && bh>H*.28 && bw>W*.12 && bw<W*.70){
+   state.cx=((minX+maxX)/2)/W;
+   state.cy=((minY+maxY)/2)/H+.03;
+   state.w=Math.min(.62,Math.max(.30,bw/W*1.10));
+   state.h=Math.min(.78,Math.max(.42,bh/H*1.12));
+   state.rot=(state.cx-.5)*-16;
+   hint.textContent='can found';
+ } else {
+   // Fail-safe: never disappear. Use a default that matches typical closed-can view.
+   state={cx:.50,cy:.52,w:.46,h:.60,rot:0};
+   hint.textContent='fallback AR placement';
+ }
+ apply();
 }
-
-function roundCanPath(c,x,y,w,h){
-  const r=w*.45, top=h*.105, bot=h*.06;
-  c.beginPath();
-  c.moveTo(x+r,y);
-  c.bezierCurveTo(x+w,y,x+w,y+top,x+w,y+top*1.25);
-  c.lineTo(x+w,y+h-bot);
-  c.bezierCurveTo(x+w,y+h,x+w-r*.55,y+h,x+w*.50,y+h);
-  c.bezierCurveTo(x+r*.55,y+h,x,y+h,x,y+h-bot);
-  c.lineTo(x,y+top*1.25);
-  c.bezierCurveTo(x,y+top,x,y,x+r,y);
-  c.closePath();
-}
-
-function drawDressedCan(){
-  const W=innerWidth,H=innerHeight;
-  const x=(box.cx-box.w/2)*W, y=(box.cy-box.h/2)*H, w=box.w*W, h=box.h*H;
-  const tilt=clamp(orient.g/45,-1,1);
-  ctx.save();
-  roundCanPath(ctx,x,y,w,h);
-  ctx.clip();
-
-  // Suppress only the silver can under the photo, not the whole screen.
-  ctx.save();
-  ctx.globalAlpha=.30;
-  ctx.filter='blur(8px) brightness(1.12) saturate(.80)';
-  ctx.drawImage(video,x-w*.08,y-h*.04,w*1.16,h*1.10,x-w*.02,y,w*1.04,h);
-  ctx.restore();
-
-  // Warm glass wash so the closed can becomes invisible behind OUR open-fridge image.
-  const grad=ctx.createLinearGradient(0,y,0,y+h);
-  grad.addColorStop(0,'rgba(238,232,205,.28)');
-  grad.addColorStop(.45,'rgba(224,214,178,.16)');
-  grad.addColorStop(1,'rgba(110,90,35,.10)');
-  ctx.fillStyle=grad; ctx.fillRect(x,y,w,h);
-
-  // Draw OUR fridge photo, clipped to the can. Top plate is intentionally attached close to the top.
-  const iw=our.naturalWidth, ih=our.naturalHeight;
-  // crop central part of uploaded open-fridge photo; keep cold plates and wiring, remove excess room.
-  const sx=iw*.16, sy=ih*.02, sw=iw*.68, sh=ih*.92;
-  const drawW=w*(1.10+Math.abs(tilt)*.10), drawH=h*1.08;
-  const dx=x+w*.50-drawW*.50 + tilt*w*.055;
-  const dy=y-h*.045;
-  ctx.globalAlpha=.94;
-  ctx.filter='contrast(1.08) saturate(1.16) brightness(1.03) drop-shadow(0 3px 6px rgba(0,0,0,.32))';
-  ctx.drawImage(our,sx,sy,sw,sh,dx,dy,drawW,drawH);
-
-  // Add top mechanical join: this makes the chandelier look attached to the top flange, not floating.
-  ctx.globalAlpha=.68;
-  ctx.filter='none';
-  ctx.strokeStyle='rgba(255,220,95,.70)'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.ellipse(x+w*.5,y+h*.075,w*.43,h*.030,tilt*.06,0,Math.PI*2); ctx.stroke();
-  ctx.fillStyle='rgba(255,205,70,.10)'; ctx.fill();
-
-  // Soft glass reflection edge, extremely subtle.
-  ctx.globalAlpha=.18;
-  ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=1;
-  ctx.beginPath(); ctx.moveTo(x+w*.12,y+h*.04); ctx.lineTo(x+w*.05,y+h*.82); ctx.stroke();
-  ctx.restore();
-}
-
-function loop(){
-  frame++;
-  ctx.clearRect(0,0,innerWidth,innerHeight);
-  if(xr && our.complete){
-    if(frame%8===0){
-      const d=detectCan();
-      if(d) target=d;
-      // If no detection yet, safe default around the usual closed-can volume. Never black screen.
-    }
-    box.cx=lerp(box.cx,target.cx,.14); box.cy=lerp(box.cy,target.cy,.14); box.w=lerp(box.w,target.w,.12); box.h=lerp(box.h,target.h,.12);
-    drawDressedCan();
-  }
-  requestAnimationFrame(loop);
-}
-loop();
+setInterval(detectCan,260);window.addEventListener('resize',apply);apply();
+window.addEventListener('deviceorientation',e=>{ if(!on)return; const g=e.gamma||0; state.rot=Math.max(-10,Math.min(10,-g*.25)); apply(); });
+// Optional fine tune, but no lock needed.
+document.querySelectorAll('#fine button').forEach(b=>b.onclick=()=>{const k=b.dataset.k;manual=true;if(k==='up')offset.y-=10;if(k==='down')offset.y+=10;if(k==='left')offset.x-=10;if(k==='right')offset.x+=10;if(k==='plus')offset.s*=1.06;if(k==='minus')offset.s/=1.06;hint.textContent='manual trim';apply();});
 </script>
 </body>
 </html>
