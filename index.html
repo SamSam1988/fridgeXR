@@ -3,92 +3,126 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>fridgeXR v15</title>
+<title>fridgeXR v16</title>
 <style>
   html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;touch-action:none}
   #cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000;z-index:0}
-  #dress{position:fixed;left:50%;top:48%;width:44vw;height:55vh;transform:translate(-50%,-50%);z-index:3;pointer-events:none;opacity:0;transition:opacity .18s ease, left .18s ease, top .18s ease, width .18s ease, height .18s ease, transform .18s ease;overflow:hidden;border-radius:48% 48% 18% 18%/10% 10% 8% 8%;filter:contrast(1.05) saturate(1.15) drop-shadow(0 0 18px rgba(255,190,45,.18));}
-  #dress::before{content:"";position:absolute;inset:-2%;background:rgba(200,200,190,.12);backdrop-filter:blur(8px) saturate(.55) brightness(1.12);border:1px solid rgba(255,220,100,.16);border-radius:inherit;}
-  #fridge{position:absolute;left:50%;top:51%;width:115%;height:110%;object-fit:contain;transform:translate(-50%,-50%);mix-blend-mode:multiply;filter:saturate(1.35) contrast(1.16) brightness(1.08);opacity:.96;}
-  #gold{position:absolute;inset:0;background:radial-gradient(ellipse at center, rgba(255,196,42,.15), transparent 55%);mix-blend-mode:screen}
-  #topLine{position:fixed;left:28%;top:23%;width:44%;height:3px;background:rgba(255,215,70,.75);box-shadow:0 0 14px rgba(255,215,70,.75);z-index:4;opacity:0;transition:opacity .18s ease}
-  .on #dress,.on #topLine{opacity:1}
-  #status{position:fixed;left:14px;top:14px;z-index:10;background:rgba(0,0,0,.52);color:#fff;border-radius:999px;padding:11px 15px;font-weight:800;font-size:16px;backdrop-filter:blur(10px)}
-  .on #status{color:#ffd84b;border:1px solid rgba(255,216,75,.32)}
-  #hint{position:fixed;right:14px;top:14px;z-index:10;background:rgba(0,0,0,.48);color:#fff;border-radius:999px;padding:11px 15px;font-weight:700;font-size:15px;backdrop-filter:blur(10px);max-width:58vw;text-align:center}
-  #controls{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom));z-index:10;display:flex;justify-content:center;gap:14px;align-items:center}
-  button{border:0;border-radius:999px;padding:18px 38px;font-size:25px;font-weight:900;letter-spacing:.5px;background:linear-gradient(#ffe06c,#d69b1e);color:#111;box-shadow:0 10px 30px rgba(0,0,0,.38)}
-  button.secondary{background:rgba(0,0,0,.55);color:white;font-size:20px;padding:17px 30px}
-  #fine{position:fixed;right:12px;top:120px;display:none;flex-direction:column;gap:9px;z-index:11}.on #fine{display:flex}
-  #fine button{width:54px;height:54px;padding:0;font-size:26px;background:rgba(0,0,0,.48);color:#fff}
+  #dress{position:fixed;z-index:3;pointer-events:none;opacity:.96;overflow:hidden;
+    border-radius:50% 50% 13% 13%/7% 7% 4% 4%;
+    transform-origin:50% 0%;
+    filter:contrast(1.04) saturate(1.12) drop-shadow(0 0 12px rgba(255,190,40,.16));
+    transition:left .10s linear, top .10s linear, width .10s linear, height .10s linear, transform .10s linear;
+  }
+  #dress::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 24px rgba(255,230,120,.16), inset 0 0 90px rgba(255,255,255,.08);z-index:3;pointer-events:none}
+  #fridge{position:absolute;left:50%;top:0;width:118%;height:106%;object-fit:cover;object-position:50% 0%;transform:translateX(-50%);opacity:.98;filter:brightness(1.03) contrast(1.08) saturate(1.22)}
+  #attach{position:fixed;z-index:4;height:3px;background:rgba(255,210,70,.70);box-shadow:0 0 12px rgba(255,210,70,.55);opacity:.55;pointer-events:none;transition:left .10s linear, top .10s linear, width .10s linear, transform .10s linear}
+  #status{position:fixed;left:14px;top:14px;z-index:10;padding:9px 13px;border-radius:999px;background:rgba(0,0,0,.42);color:#ffd84b;font-weight:900;font-size:15px;backdrop-filter:blur(8px);border:1px solid rgba(255,216,75,.18)}
+  #hint{position:fixed;right:14px;top:14px;z-index:10;padding:9px 13px;border-radius:999px;background:rgba(0,0,0,.36);color:white;font-weight:750;font-size:14px;backdrop-filter:blur(8px);max-width:62vw;text-align:center}
   canvas{display:none}
 </style>
 </head>
 <body>
 <video id="cam" autoplay playsinline muted></video>
-<div id="dress"><img id="fridge" src="assets/our_fridge.jpg"><div id="gold"></div></div>
-<div id="topLine"></div>
-<div id="status">LIVE</div><div id="hint">press XRAY</div>
-<div id="fine"><button data-k="up">↑</button><button data-k="down">↓</button><button data-k="left">←</button><button data-k="right">→</button><button data-k="plus">+</button><button data-k="minus">−</button></div>
-<div id="controls"><button class="secondary" id="live">LIVE</button><button id="xray">XRAY</button></div>
-<canvas id="scan" width="96" height="160"></canvas>
+<div id="dress"><img id="fridge" src="assets/our_fridge_tight.jpg" alt="open fridge"></div>
+<div id="attach"></div>
+<div id="status">XRAY</div><div id="hint">point at closed can</div>
+<canvas id="scan" width="128" height="224"></canvas>
 <script>
-const video=document.getElementById('cam'), dress=document.getElementById('dress'), topLine=document.getElementById('topLine');
-const statusEl=document.getElementById('status'), hint=document.getElementById('hint'), scan=document.getElementById('scan'), ctx=scan.getContext('2d',{willReadFrequently:true});
-let on=false, manual=false, state={cx:.50, cy:.52, w:.45, h:.58, rot:0};
-let offset={x:0,y:0,s:1};
+const video=document.getElementById('cam');
+const dress=document.getElementById('dress');
+const attach=document.getElementById('attach');
+const hint=document.getElementById('hint');
+const scan=document.getElementById('scan');
+const ctx=scan.getContext('2d',{willReadFrequently:true});
+let state={cx:.50, top:.225, w:.44, h:.62, rot:0, found:false};
+let smooth={...state};
 async function startCamera(){
   try{
     const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
     video.srcObject=stream;
+    await video.play().catch(()=>{});
   }catch(e){
-    hint.textContent='camera blocked: use https and allow camera';
+    hint.textContent='allow camera / use https';
   }
 }
 startCamera();
-function setOn(v){on=v;document.body.classList.toggle('on',on);statusEl.textContent=on?'XRAY ON':'LIVE';hint.textContent=on?'auto-dressing closed can':'press XRAY';}
-document.getElementById('xray').onclick=()=>setOn(!on);document.getElementById('live').onclick=()=>setOn(false);
+function lerp(a,b,t){return a+(b-a)*t}
 function apply(){
- const vw=innerWidth,vh=innerHeight;
- const w=state.w*vw*offset.s, h=state.h*vh*offset.s;
- const x=state.cx*vw+offset.x, y=state.cy*vh+offset.y;
- dress.style.width=w+'px'; dress.style.height=h+'px'; dress.style.left=x+'px'; dress.style.top=y+'px';
- dress.style.transform=`translate(-50%,-50%) perspective(700px) rotateY(${state.rot}deg) rotateX(-2deg)`;
- topLine.style.left=(x-w*.47)+'px'; topLine.style.width=(w*.94)+'px'; topLine.style.top=(y-h*.49)+'px';
+  for(const k of ['cx','top','w','h','rot']) smooth[k]=lerp(smooth[k],state[k],.32);
+  const vw=innerWidth,vh=innerHeight;
+  const w=smooth.w*vw, h=smooth.h*vh;
+  const x=smooth.cx*vw, y=smooth.top*vh;
+  dress.style.left=(x-w/2)+'px'; dress.style.top=y+'px'; dress.style.width=w+'px'; dress.style.height=h+'px';
+  dress.style.transform=`perspective(820px) rotateY(${smooth.rot}deg) rotateX(-1.5deg)`;
+  attach.style.left=(x-w*.47)+'px'; attach.style.width=(w*.94)+'px'; attach.style.top=(y+2)+'px'; attach.style.transform=`rotate(${smooth.rot*.04}deg)`;
+  requestAnimationFrame(apply);
 }
-function detectCan(){
- if(!on || manual || video.readyState<2)return;
- const W=scan.width,H=scan.height; ctx.drawImage(video,0,0,W,H); const d=ctx.getImageData(0,0,W,H).data;
- let minX=W,maxX=0,minY=H,maxY=0,count=0;
- // silver OVC: low saturation, mid/high brightness, center-biased, mostly vertical
- for(let y=18;y<H-12;y++)for(let x=12;x<W-12;x++){
-   const i=(y*W+x)*4,r=d[i],g=d[i+1],b=d[i+2];
-   const max=Math.max(r,g,b),min=Math.min(r,g,b),sat=max-min,br=(r+g+b)/3;
-   const centerBias=1-Math.min(1,Math.abs(x/W-.52)/.42);
-   if(br>78 && br<230 && sat<42 && centerBias>.18){
-     // avoid white wall: require local vertical grey continuity loosely
-     count++; if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)y>maxY&&(maxY=y);
-   }
- }
- const bw=maxX-minX,bh=maxY-minY,area=count/(W*H);
- if(count>900 && bh>H*.28 && bw>W*.12 && bw<W*.70){
-   state.cx=((minX+maxX)/2)/W;
-   state.cy=((minY+maxY)/2)/H+.03;
-   state.w=Math.min(.62,Math.max(.30,bw/W*1.10));
-   state.h=Math.min(.78,Math.max(.42,bh/H*1.12));
-   state.rot=(state.cx-.5)*-16;
-   hint.textContent='can found';
- } else {
-   // Fail-safe: never disappear. Use a default that matches typical closed-can view.
-   state={cx:.50,cy:.52,w:.46,h:.60,rot:0};
-   hint.textContent='fallback AR placement';
- }
- apply();
+apply();
+function pixelStats(d,W,x,y){
+  const i=(y*W+x)*4, r=d[i], g=d[i+1], b=d[i+2];
+  const max=Math.max(r,g,b), min=Math.min(r,g,b); return {r,g,b,br:(r+g+b)/3,sat:max-min};
 }
-setInterval(detectCan,260);window.addEventListener('resize',apply);apply();
-window.addEventListener('deviceorientation',e=>{ if(!on)return; const g=e.gamma||0; state.rot=Math.max(-10,Math.min(10,-g*.25)); apply(); });
-// Optional fine tune, but no lock needed.
-document.querySelectorAll('#fine button').forEach(b=>b.onclick=()=>{const k=b.dataset.k;manual=true;if(k==='up')offset.y-=10;if(k==='down')offset.y+=10;if(k==='left')offset.x-=10;if(k==='right')offset.x+=10;if(k==='plus')offset.s*=1.06;if(k==='minus')offset.s/=1.06;hint.textContent='manual trim';apply();});
+function detect(){
+  if(video.readyState<2)return;
+  const W=scan.width,H=scan.height;
+  ctx.drawImage(video,0,0,W,H);
+  const img=ctx.getImageData(0,0,W,H), d=img.data;
+  // 1) Estimate the closed can/cylinder body using bright low-saturation grey pixels.
+  let minX=W,maxX=0,minY=H,maxY=0,count=0;
+  for(let y=Math.floor(H*.08);y<Math.floor(H*.92);y++){
+    for(let x=Math.floor(W*.08);x<Math.floor(W*.92);x++){
+      const p=pixelStats(d,W,x,y);
+      const centerBias=1-Math.min(1,Math.abs(x/W-.50)/.42);
+      if(p.br>72 && p.br<236 && p.sat<48 && centerBias>.12){
+        // keep likely large grey metal / OVC, not small white highlights only
+        count++; if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;
+      }
+    }
+  }
+  let foundBody=false;
+  const bw=maxX-minX, bh=maxY-minY;
+  if(count>850 && bw>W*.13 && bw<W*.72 && bh>H*.28){foundBody=true;}
+  // 2) Find the horizontal opening seam/rim: strong horizontal edge high in the detected body.
+  let yStart=Math.floor(H*.10), yEnd=Math.floor(H*.52), xStart=Math.floor(W*.18), xEnd=Math.floor(W*.82);
+  if(foundBody){
+    xStart=Math.max(4,minX-5); xEnd=Math.min(W-5,maxX+5);
+    yStart=Math.max(8,Math.floor(minY-H*.04)); yEnd=Math.min(H-8,Math.floor(minY+bh*.42));
+  }
+  let bestY=yStart,bestScore=-1;
+  for(let y=yStart+2;y<yEnd-2;y++){
+    let score=0;
+    for(let x=xStart+2;x<xEnd-2;x++){
+      const p=pixelStats(d,W,x,y);
+      const i1=((y-1)*W+x)*4, i2=((y+1)*W+x)*4;
+      const g1=(d[i1]+d[i1+1]+d[i1+2])/3, g2=(d[i2]+d[i2+1]+d[i2+2])/3;
+      const edge=Math.abs(g2-g1);
+      // opening line/rim tends to be grey, low-sat, high horizontal contrast, near top.
+      const grey=(p.sat<58 && p.br>55 && p.br<245)?1:0;
+      const highBias=1-(y-yStart)/Math.max(1,(yEnd-yStart));
+      score += edge*(.4+grey*.9)*(1+.35*highBias);
+    }
+    if(score>bestScore){bestScore=score;bestY=y;}
+  }
+  // 3) Use body width if possible, but anchor top exactly to detected opening line.
+  if(foundBody){
+    state.cx=((minX+maxX)/2)/W;
+    state.top=Math.max(.07,Math.min(.50,bestY/H));
+    state.w=Math.min(.62,Math.max(.28,(bw/W)*1.02));
+    // extend downward from opening line to can lower area, not beyond screen
+    const desiredBottom=Math.min(.94,(maxY/H)+.02);
+    state.h=Math.min(.82,Math.max(.43,desiredBottom-state.top));
+    state.rot=(state.cx-.5)*-15;
+    state.found=true;
+    hint.textContent='opening line matched';
+  }else{
+    // Fail-safe: always show XRAY in a plausible closed-can area, but no controls.
+    state={cx:.50, top:.22, w:.44, h:.62, rot:0, found:false};
+    hint.textContent='searching for can';
+  }
+}
+setInterval(detect,140);
+window.addEventListener('resize',()=>{});
+window.addEventListener('deviceorientation',e=>{const g=e.gamma||0; state.rot=Math.max(-9,Math.min(9,state.rot-g*.06));});
 </script>
 </body>
 </html>
