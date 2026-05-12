@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Dilution Fridge X-Ray Viewer</title>
+  <style>
+    :root { --bg:#0b0d10; --panel:#171b22cc; --text:#f7f1df; --muted:#bdb7aa; --gold:#d8aa3b; }
+    * { box-sizing: border-box; }
+    html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+    body { overflow:hidden; }
+    #stage { position:fixed; inset:0; background:#000; }
+    video, #overlay { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+    video { transform: scaleX(var(--mirror, 1)); }
+    #overlay { pointer-events:none; object-fit:contain; opacity:.72; mix-blend-mode:screen; filter: saturate(1.12) contrast(1.05); transform-origin:center; }
+    #shade { position:absolute; inset:0; pointer-events:none; box-shadow: inset 0 0 160px #000; opacity:.2; }
+    .panel { position:fixed; left:12px; right:12px; bottom:12px; background:var(--panel); border:1px solid #ffffff22; border-radius:18px; padding:12px; backdrop-filter: blur(14px); box-shadow:0 12px 40px #0008; }
+    .top { position:fixed; left:12px; right:12px; top:12px; display:flex; gap:8px; align-items:center; justify-content:space-between; }
+    .badge { background:#171b22cc; border:1px solid #ffffff22; border-radius:999px; padding:8px 12px; font-weight:700; backdrop-filter: blur(14px); }
+    button, select { appearance:none; border:1px solid #ffffff2d; background:#202631; color:var(--text); border-radius:12px; padding:10px 12px; font-weight:700; }
+    button.primary { background:linear-gradient(180deg, #f1c85b, #b8871e); color:#1b1303; border-color:#ffe49b55; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px 14px; }
+    label { display:grid; gap:5px; font-size:12px; color:var(--muted); }
+    input[type=range] { width:100%; accent-color:var(--gold); }
+    .row { display:flex; gap:8px; align-items:center; margin-top:10px; }
+    .row > * { flex:1; }
+    .hint { font-size:12px; color:var(--muted); margin-top:8px; line-height:1.3; }
+    @media (min-width: 780px) { .panel { left:auto; width:430px; } .grid { grid-template-columns:1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <main id="stage">
+    <video id="camera" autoplay playsinline muted></video>
+    <img id="overlay" src="assets/front_full.jpg" alt="open dilution refrigerator overlay" />
+    <div id="shade"></div>
+  </main>
+  <div class="top">
+    <div class="badge">Fridge X-Ray Viewer</div>
+    <button id="start" class="primary">Start camera</button>
+  </div>
+  <section class="panel">
+    <div class="grid">
+      <label>Open-fridge image
+        <select id="imageChoice">
+          <option value="assets/front_full.jpg">Front full chandelier</option>
+          <option value="assets/front_medium.jpg">Front medium</option>
+          <option value="assets/detail_wiring.jpg">Wiring/detail</option>
+          <option value="assets/detail_bluebox.jpg">Blue box/detail</option>
+        </select>
+      </label>
+      <label>Blend mode
+        <select id="blend">
+          <option>screen</option><option>normal</option><option>lighten</option><option>multiply</option><option>overlay</option>
+        </select>
+      </label>
+      <label>Transparency <input id="opacity" type="range" min="0" max="100" value="72"></label>
+      <label>Scale <input id="scale" type="range" min="40" max="220" value="100"></label>
+      <label>Move X <input id="x" type="range" min="-100" max="100" value="0"></label>
+      <label>Move Y <input id="y" type="range" min="-100" max="100" value="0"></label>
+      <label>Rotate <input id="rot" type="range" min="-30" max="30" value="0"></label>
+      <label>Gold boost <input id="gold" type="range" min="70" max="170" value="112"></label>
+    </div>
+    <div class="row">
+      <button id="mirror">Mirror camera</button>
+      <button id="capture">Capture PNG</button>
+      <button id="reset">Reset</button>
+    </div>
+    <div class="hint">Use this first version to test the illusion. For reliable alignment later, we will add calibration using the visible window corners or small fiducial markers.</div>
+  </section>
+<script>
+const video = document.getElementById('camera');
+const overlay = document.getElementById('overlay');
+const root = document.documentElement;
+const els = Object.fromEntries(['opacity','scale','x','y','rot','gold','blend','imageChoice'].map(id=>[id,document.getElementById(id)]));
+let mirrored = false;
+async function startCamera(){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080}}, audio:false});
+    video.srcObject = stream;
+  }catch(e){ alert('Camera failed. On iPhone/iPad this must be served over HTTPS or localhost. ' + e.message); }
+}
+function apply(){
+  overlay.style.opacity = els.opacity.value/100;
+  overlay.style.mixBlendMode = els.blend.value;
+  overlay.src = els.imageChoice.value;
+  const s = els.scale.value/100, x = els.x.value, y = els.y.value, r = els.rot.value;
+  overlay.style.transform = `translate(${x}vw, ${y}vh) rotate(${r}deg) scale(${s})`;
+  overlay.style.filter = `saturate(${els.gold.value/100}) contrast(1.05)`;
+}
+Object.values(els).forEach(el=>el.addEventListener('input', apply));
+document.getElementById('start').onclick=startCamera;
+document.getElementById('mirror').onclick=()=>{ mirrored=!mirrored; root.style.setProperty('--mirror', mirrored ? -1 : 1); };
+document.getElementById('reset').onclick=()=>{ opacity.value=72; scale.value=100; x.value=0; y.value=0; rot.value=0; gold.value=112; blend.value='screen'; imageChoice.value='assets/front_full.jpg'; apply(); };
+document.getElementById('capture').onclick=()=>{
+  const c=document.createElement('canvas'), w=video.videoWidth||1920, h=video.videoHeight||1080; c.width=w; c.height=h;
+  const ctx=c.getContext('2d'); ctx.drawImage(video,0,0,w,h); ctx.globalAlpha=els.opacity.value/100; ctx.drawImage(overlay,0,0,w,h);
+  const a=document.createElement('a'); a.download='fridge-xray-capture.png'; a.href=c.toDataURL('image/png'); a.click();
+};
+apply();
+</script>
+</body>
+</html>
