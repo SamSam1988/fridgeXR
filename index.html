@@ -1,128 +1,176 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>fridgeXR v16</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>FridgeXR v19</title>
 <style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;touch-action:none}
-  #cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000;z-index:0}
-  #dress{position:fixed;z-index:3;pointer-events:none;opacity:.96;overflow:hidden;
-    border-radius:50% 50% 13% 13%/7% 7% 4% 4%;
-    transform-origin:50% 0%;
-    filter:contrast(1.04) saturate(1.12) drop-shadow(0 0 12px rgba(255,190,40,.16));
-    transition:left .10s linear, top .10s linear, width .10s linear, height .10s linear, transform .10s linear;
-  }
-  #dress::before{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 24px rgba(255,230,120,.16), inset 0 0 90px rgba(255,255,255,.08);z-index:3;pointer-events:none}
-  #fridge{position:absolute;left:50%;top:0;width:118%;height:106%;object-fit:cover;object-position:50% 0%;transform:translateX(-50%);opacity:.98;filter:brightness(1.03) contrast(1.08) saturate(1.22)}
-  #attach{position:fixed;z-index:4;height:3px;background:rgba(255,210,70,.70);box-shadow:0 0 12px rgba(255,210,70,.55);opacity:.55;pointer-events:none;transition:left .10s linear, top .10s linear, width .10s linear, transform .10s linear}
-  #status{position:fixed;left:14px;top:14px;z-index:10;padding:9px 13px;border-radius:999px;background:rgba(0,0,0,.42);color:#ffd84b;font-weight:900;font-size:15px;backdrop-filter:blur(8px);border:1px solid rgba(255,216,75,.18)}
-  #hint{position:fixed;right:14px;top:14px;z-index:10;padding:9px 13px;border-radius:999px;background:rgba(0,0,0,.36);color:white;font-weight:750;font-size:14px;backdrop-filter:blur(8px);max-width:62vw;text-align:center}
-  canvas{display:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;touch-action:none}
+#cam,#paint,#clip,#debug{position:fixed;inset:0;width:100%;height:100%;object-fit:cover}
+#paint,#debug{pointer-events:none}
+#clip{pointer-events:none;overflow:hidden;opacity:.96;mix-blend-mode:normal;filter:drop-shadow(0 0 16px rgba(255,190,60,.22))}
+#dream,#real{position:absolute;left:0;top:0;height:70vh;width:auto;transform-origin:50% 0%;pointer-events:none;will-change:transform,height,opacity}
+#dream{opacity:.58;filter:saturate(1.05) contrast(1.05)}
+#real{opacity:.82;mix-blend-mode:screen;filter:saturate(1.45) contrast(1.18) brightness(1.04)}
+#ver{position:fixed;top:calc(10px + env(safe-area-inset-top));left:10px;z-index:20;background:rgba(0,0,0,.54);color:#ffd84a;border:1px solid rgba(255,216,74,.55);border-radius:12px;padding:7px 10px;font-weight:900;font-size:13px;letter-spacing:.3px;backdrop-filter:blur(10px)}
+#hint{position:fixed;top:calc(10px + env(safe-area-inset-top));right:10px;z-index:20;background:rgba(0,0,0,.42);color:#fff;border-radius:12px;padding:7px 10px;font-weight:700;font-size:12px;opacity:.72;backdrop-filter:blur(10px)}
 </style>
 </head>
 <body>
 <video id="cam" autoplay playsinline muted></video>
-<div id="dress"><img id="fridge" src="assets/our_fridge_tight.jpg" alt="open fridge"></div>
-<div id="attach"></div>
-<div id="status">XRAY</div><div id="hint">point at closed can</div>
-<canvas id="scan" width="128" height="224"></canvas>
+<canvas id="paint"></canvas>
+<div id="clip">
+  <img id="dream" src="assets/dream_chandelier_clean.png" alt="golden fridge idealized">
+  <img id="real" src="assets/user_chandelier_clean.png" alt="our open fridge">
+</div>
+<canvas id="debug"></canvas>
+<div id="ver">v19 XRAY</div>
+<div id="hint">auto can detect</div>
 <script>
-const video=document.getElementById('cam');
-const dress=document.getElementById('dress');
-const attach=document.getElementById('attach');
+const cam=document.getElementById('cam');
+const paint=document.getElementById('paint'),pctx=paint.getContext('2d');
+const dbg=document.getElementById('debug'),dctx=dbg.getContext('2d');
+const clip=document.getElementById('clip');
+const dream=document.getElementById('dream'), real=document.getElementById('real');
 const hint=document.getElementById('hint');
-const scan=document.getElementById('scan');
-const ctx=scan.getContext('2d',{willReadFrequently:true});
-let state={cx:.50, top:.225, w:.44, h:.62, rot:0, found:false};
-let smooth={...state};
+const scan=document.createElement('canvas');
+const sctx=scan.getContext('2d',{willReadFrequently:true});
+let target=null,lastGood=null,lastDetect=0,orient={x:0,y:0};
+
 async function startCamera(){
   try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
-    video.srcObject=stream;
-    await video.play().catch(()=>{});
-  }catch(e){
-    hint.textContent='allow camera / use https';
-  }
+    cam.srcObject=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
+  }catch(e){hint.textContent='camera blocked'; alert('Camera needs HTTPS/GitHub Pages and permission. '+e.message);}
 }
 startCamera();
-function lerp(a,b,t){return a+(b-a)*t}
-function apply(){
-  for(const k of ['cx','top','w','h','rot']) smooth[k]=lerp(smooth[k],state[k],.32);
-  const vw=innerWidth,vh=innerHeight;
-  const w=smooth.w*vw, h=smooth.h*vh;
-  const x=smooth.cx*vw, y=smooth.top*vh;
-  dress.style.left=(x-w/2)+'px'; dress.style.top=y+'px'; dress.style.width=w+'px'; dress.style.height=h+'px';
-  dress.style.transform=`perspective(820px) rotateY(${smooth.rot}deg) rotateX(-1.5deg)`;
-  attach.style.left=(x-w*.47)+'px'; attach.style.width=(w*.94)+'px'; attach.style.top=(y+2)+'px'; attach.style.transform=`rotate(${smooth.rot*.04}deg)`;
-  requestAnimationFrame(apply);
+function fit(){for(const c of [paint,dbg]){c.width=innerWidth*devicePixelRatio;c.height=innerHeight*devicePixelRatio;c.style.width=innerWidth+'px';c.style.height=innerHeight+'px';const ctx=c.getContext('2d');ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}}
+addEventListener('resize',fit); fit();
+function satv(r,g,b){return [Math.max(r,g,b)-Math.min(r,g,b),Math.max(r,g,b)]}
+function defBox(){return {x:innerWidth*.52,y:innerHeight*.18,w:innerWidth*.33,h:innerHeight*.58,score:0,auto:false}}
+function smooth(nb){
+  if(!nb)return;
+  if(!target) target=nb; else {const a=nb.auto?.22:.08; for(const k of ['x','y','w','h']) target[k]=target[k]*(1-a)+nb[k]*a; target.score=nb.score; target.auto=nb.auto;}
+  if(nb.auto) lastGood={...target,auto:true};
 }
-apply();
-function pixelStats(d,W,x,y){
-  const i=(y*W+x)*4, r=d[i], g=d[i+1], b=d[i+2];
-  const max=Math.max(r,g,b), min=Math.min(r,g,b); return {r,g,b,br:(r+g+b)/3,sat:max-min};
-}
-function detect(){
-  if(video.readyState<2)return;
-  const W=scan.width,H=scan.height;
-  ctx.drawImage(video,0,0,W,H);
-  const img=ctx.getImageData(0,0,W,H), d=img.data;
-  // 1) Estimate the closed can/cylinder body using bright low-saturation grey pixels.
-  let minX=W,maxX=0,minY=H,maxY=0,count=0;
-  for(let y=Math.floor(H*.08);y<Math.floor(H*.92);y++){
-    for(let x=Math.floor(W*.08);x<Math.floor(W*.92);x++){
-      const p=pixelStats(d,W,x,y);
-      const centerBias=1-Math.min(1,Math.abs(x/W-.50)/.42);
-      if(p.br>72 && p.br<236 && p.sat<48 && centerBias>.12){
-        // keep likely large grey metal / OVC, not small white highlights only
-        count++; if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;
+function detectOVC(){
+  if(cam.videoWidth<20)return null;
+  const W=160,H=260; scan.width=W; scan.height=H; sctx.drawImage(cam,0,0,W,H);
+  const im=sctx.getImageData(0,0,W,H).data;
+  const gray=new Float32Array(W*H), silver=new Uint8Array(W*H), edgeX=new Float32Array(W*H), edgeY=new Float32Array(W*H);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const i=(y*W+x)*4,r=im[i],g=im[i+1],b=im[i+2]; const [s,v]=satv(r,g,b);
+    const gr=.299*r+.587*g+.114*b; gray[y*W+x]=gr;
+    // OVC can is usually matte silver/gray: low saturation, medium/high value. Include shadows, exclude red pipe and black cables.
+    if(s<54 && v>62 && v<238 && Math.abs(r-g)<38 && Math.abs(g-b)<42) silver[y*W+x]=1;
+  }
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
+    edgeX[y*W+x]=Math.abs(gray[y*W+x+1]-gray[y*W+x-1]);
+    edgeY[y*W+x]=Math.abs(gray[(y+1)*W+x]-gray[(y-1)*W+x]);
+  }
+  const col=new Float32Array(W), row=new Float32Array(H), colEdge=new Float32Array(W), rowEdge=new Float32Array(H);
+  const yA=Math.floor(H*.10), yB=Math.floor(H*.88);
+  for(let x=0;x<W;x++)for(let y=yA;y<yB;y++){col[x]+=silver[y*W+x]; colEdge[x]+=edgeX[y*W+x];}
+  for(let y=0;y<H;y++)for(let x=Math.floor(W*.08);x<Math.floor(W*.96);x++){row[y]+=silver[y*W+x]; rowEdge[y]+=edgeY[y*W+x];}
+  let best=null;
+  // Sliding-window cylinder finder. It does not need a perfect blob: it looks for a tall silver column with vertical sides and a horizontal top rim/seam.
+  for(let ww=Math.floor(W*.18);ww<=Math.floor(W*.54);ww+=4){
+    for(let x1=Math.floor(W*.06);x1<=Math.floor(W*.96)-ww;x1+=3){
+      const x2=x1+ww, cx=(x1+x2)/2/W;
+      let silverSum=0, edgeSides=0;
+      for(let x=x1;x<x2;x++) silverSum+=col[x];
+      for(let y=yA;y<yB;y++){
+        for(let dx=-2;dx<=2;dx++){
+          const lx=Math.max(1,Math.min(W-2,x1+dx)), rx=Math.max(1,Math.min(W-2,x2+dx));
+          edgeSides+=edgeX[y*W+lx]+edgeX[y*W+rx];
+        }
       }
+      // Find top and bottom from silver row density inside this x-window.
+      let ys=[];
+      for(let y=Math.floor(H*.06);y<Math.floor(H*.92);y++){
+        let n=0,e=0; for(let x=x1;x<x2;x++){n+=silver[y*W+x]; e+=edgeY[y*W+x];}
+        if(n>ww*.18 || e>ww*7) ys.push(y);
+      }
+      if(ys.length<20) continue;
+      let y1=ys[0], y2=ys[ys.length-1];
+      let hh=y2-y1; if(hh<H*.24 || hh>H*.86) continue;
+      const dens=silverSum/(ww*(yB-yA));
+      const aspect=ww/hh;
+      const centerBias=1-Math.min(1,Math.abs(cx-.56)/.62); // slight right bias: in your lab view the closed can often sits to the right.
+      // Top seam: strong horizontal edge near upper part of candidate.
+      let seam=0,seamY=y1;
+      for(let y=Math.max(3,y1-8);y<Math.min(H-3,y1+Math.floor(hh*.25));y++){
+        let e=0; for(let x=x1;x<x2;x++) e+=edgeY[y*W+x];
+        if(e>seam){seam=e; seamY=y;}
+      }
+      let score=dens*3.8 + Math.min(1,edgeSides/(hh*ww*32))*1.4 + Math.min(1,seam/(ww*35))*1.5 + centerBias*.65;
+      if(aspect<.18||aspect>1.25) score*=.62;
+      if(y1/H>.55) score*=.45; // top of can should not start at floor
+      if(cx<.15||cx>.92) score*=.55;
+      if(!best||score>best.score) best={x1,x2,y1,y2,seamY,score,dens,auto:true};
     }
   }
-  let foundBody=false;
-  const bw=maxX-minX, bh=maxY-minY;
-  if(count>850 && bw>W*.13 && bw<W*.72 && bh>H*.28){foundBody=true;}
-  // 2) Find the horizontal opening seam/rim: strong horizontal edge high in the detected body.
-  let yStart=Math.floor(H*.10), yEnd=Math.floor(H*.52), xStart=Math.floor(W*.18), xEnd=Math.floor(W*.82);
-  if(foundBody){
-    xStart=Math.max(4,minX-5); xEnd=Math.min(W-5,maxX+5);
-    yStart=Math.max(8,Math.floor(minY-H*.04)); yEnd=Math.min(H-8,Math.floor(minY+bh*.42));
-  }
-  let bestY=yStart,bestScore=-1;
-  for(let y=yStart+2;y<yEnd-2;y++){
-    let score=0;
-    for(let x=xStart+2;x<xEnd-2;x++){
-      const p=pixelStats(d,W,x,y);
-      const i1=((y-1)*W+x)*4, i2=((y+1)*W+x)*4;
-      const g1=(d[i1]+d[i1+1]+d[i1+2])/3, g2=(d[i2]+d[i2+1]+d[i2+2])/3;
-      const edge=Math.abs(g2-g1);
-      // opening line/rim tends to be grey, low-sat, high horizontal contrast, near top.
-      const grey=(p.sat<58 && p.br>55 && p.br<245)?1:0;
-      const highBias=1-(y-yStart)/Math.max(1,(yEnd-yStart));
-      score += edge*(.4+grey*.9)*(1+.35*highBias);
-    }
-    if(score>bestScore){bestScore=score;bestY=y;}
-  }
-  // 3) Use body width if possible, but anchor top exactly to detected opening line.
-  if(foundBody){
-    state.cx=((minX+maxX)/2)/W;
-    state.top=Math.max(.07,Math.min(.50,bestY/H));
-    state.w=Math.min(.62,Math.max(.28,(bw/W)*1.02));
-    // extend downward from opening line to can lower area, not beyond screen
-    const desiredBottom=Math.min(.94,(maxY/H)+.02);
-    state.h=Math.min(.82,Math.max(.43,desiredBottom-state.top));
-    state.rot=(state.cx-.5)*-15;
-    state.found=true;
-    hint.textContent='opening line matched';
-  }else{
-    // Fail-safe: always show XRAY in a plausible closed-can area, but no controls.
-    state={cx:.50, top:.22, w:.44, h:.62, rot:0, found:false};
-    hint.textContent='searching for can';
+  if(!best || best.score<1.38) return null;
+  let b={x:best.x1/W*innerWidth,y:best.seamY/H*innerHeight,w:(best.x2-best.x1)/W*innerWidth,h:(best.y2-best.seamY)/H*innerHeight,score:best.score,auto:true};
+  // Expand into the physical OVC cylinder, but keep top flange visible above it.
+  b.x-=b.w*.12; b.w*=1.24; b.y-=b.h*.02; b.h*=1.10;
+  b.w=Math.min(b.w,innerWidth*.58); b.h=Math.min(b.h,innerHeight*.76);
+  b.x=Math.max(0,Math.min(innerWidth-b.w,b.x)); b.y=Math.max(innerHeight*.04,Math.min(innerHeight-b.h,b.y));
+  return b;
+}
+function roundedPath(ctx,b){const r=Math.min(b.w*.45,80);ctx.beginPath();ctx.moveTo(b.x+r,b.y);ctx.lineTo(b.x+b.w-r,b.y);ctx.quadraticCurveTo(b.x+b.w,b.y,b.x+b.w,b.y+r);ctx.lineTo(b.x+b.w,b.y+b.h);ctx.lineTo(b.x,b.y+b.h);ctx.lineTo(b.x,b.y+r);ctx.quadraticCurveTo(b.x,b.y,b.x+r,b.y);ctx.closePath();}
+function sampleWall(b){
+  if(cam.videoWidth<20)return [205,205,198];
+  const W=72,H=128; scan.width=W; scan.height=H; sctx.drawImage(cam,0,0,W,H); const im=sctx.getImageData(0,0,W,H).data;
+  let r=0,g=0,bl=0,n=0;
+  const ranges=[Math.max(0,Math.floor((b.x-b.w*.28)/innerWidth*W)),Math.min(W-1,Math.floor((b.x+b.w*1.28)/innerWidth*W))];
+  const yy0=Math.max(0,Math.floor(b.y/innerHeight*H)), yy1=Math.min(H,Math.floor((b.y+b.h)/innerHeight*H));
+  for(const sx of ranges){for(let y=yy0;y<yy1;y++){for(let x=Math.max(0,sx-4);x<=Math.min(W-1,sx+4);x++){const i=(y*W+x)*4,R=im[i],G=im[i+1],B=im[i+2];const [s,v]=satv(R,G,B);if(s<75&&v>70&&v<245){r+=R;g+=G;bl+=B;n++}}}}
+  if(n<10)return [210,210,204]; return [r/n,g/n,bl/n];
+}
+function drawSuppression(b){
+  pctx.clearRect(0,0,innerWidth,innerHeight);
+  const c=sampleWall(b);
+  pctx.save(); roundedPath(pctx,b); pctx.clip();
+  const grad=pctx.createLinearGradient(b.x,b.y,b.x+b.w,b.y);
+  grad.addColorStop(0,`rgba(${c[0]-20},${c[1]-20},${c[2]-18},.18)`);
+  grad.addColorStop(.50,`rgba(${c[0]+12},${c[1]+12},${c[2]+10},.31)`);
+  grad.addColorStop(1,`rgba(${c[0]-18},${c[1]-18},${c[2]-16},.17)`);
+  pctx.fillStyle=grad; pctx.filter='blur(1.5px)'; pctx.fillRect(b.x-10,b.y-10,b.w+20,b.h+20);
+  pctx.restore();
+}
+function place(b){
+  // The clip makes the open-fridge photo dress ONLY the OVC can. No button, no portal, no full-screen image.
+  clip.style.left=b.x+'px'; clip.style.top=b.y+'px'; clip.style.width=b.w+'px'; clip.style.height=b.h+'px';
+  clip.style.borderRadius=Math.min(80,b.w*.38)+'px '+Math.min(80,b.w*.38)+'px 18px 18px';
+  clip.style.webkitMaskImage='linear-gradient(#000,#000)';
+  const parX=orient.x*.35, parY=orient.y*.12;
+  // Align the photo's top cold plate to the detected upper seam/top line and crop away surrounding background.
+  const imgH=b.h*1.58, imgW=imgH*.62;
+  const x=b.w*.50 - imgW*.50 + parX;
+  const y=-b.h*.18 + parY;
+  const rot=(b.x+b.w*.5-innerWidth*.5)/innerWidth*5 + orient.x*.035;
+  for(const el of [dream,real]){
+    el.style.height=imgH+'px';
+    el.style.transform=`translate(${x}px,${y}px) rotate(${rot}deg)`;
   }
 }
-setInterval(detect,140);
-window.addEventListener('resize',()=>{});
-window.addEventListener('deviceorientation',e=>{const g=e.gamma||0; state.rot=Math.max(-9,Math.min(9,state.rot-g*.06));});
+function drawDebug(b){
+  dctx.clearRect(0,0,innerWidth,innerHeight);
+  dctx.save(); dctx.lineWidth=2; dctx.strokeStyle=b.auto?'rgba(56,255,120,.75)':'rgba(255,216,74,.65)'; roundedPath(dctx,b); dctx.stroke();
+  dctx.fillStyle=b.auto?'rgba(56,255,120,.9)':'rgba(255,216,74,.9)'; dctx.font='700 12px -apple-system,BlinkMacSystemFont,sans-serif'; dctx.fillText(b.auto?'CAN FOUND':'FALLBACK CAN',b.x+8,Math.max(18,b.y-6)); dctx.restore();
+}
+function loop(t){
+  if(t-lastDetect>280){
+    const found=detectOVC();
+    if(found){smooth(found); hint.textContent='can found';}
+    else if(lastGood){smooth(lastGood); hint.textContent='using last can';}
+    else {smooth(defBox()); hint.textContent='fallback can';}
+    lastDetect=t;
+  }
+  const b=target||defBox(); drawSuppression(b); place(b); drawDebug(b); requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+addEventListener('deviceorientation',e=>{orient.x=e.gamma||0; orient.y=(e.beta||45)-45;});
 </script>
 </body>
 </html>
