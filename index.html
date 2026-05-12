@@ -2,237 +2,207 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-<title>FridgeXR v11</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>FridgeXR v12</title>
 <style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;touch-action:none}
-  #cam,#fx{position:fixed;inset:0;width:100%;height:100%;object-fit:cover}
-  #fx{pointer-events:none}
-  #top{position:fixed;left:16px;right:16px;top:calc(14px + env(safe-area-inset-top));display:flex;justify-content:space-between;gap:10px;z-index:5;pointer-events:none}
-  .pill{background:rgba(0,0,0,.48);color:white;border:1px solid rgba(255,210,70,.35);border-radius:999px;padding:10px 15px;font-size:16px;font-weight:800;backdrop-filter:blur(12px);text-shadow:0 1px 2px #000}
-  .pill.on{color:#ffd84c;box-shadow:0 0 24px rgba(255,205,64,.22)}
-  #bar{position:fixed;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom));display:flex;justify-content:center;z-index:6;pointer-events:none}
-  #xray{pointer-events:auto;border:none;border-radius:999px;padding:18px 48px;font-size:27px;font-weight:900;letter-spacing:.03em;background:linear-gradient(#ffe46a,#d39b15);color:#15110a;box-shadow:0 12px 35px rgba(0,0,0,.48), inset 0 1px 0 rgba(255,255,255,.55)}
-  #hint{position:fixed;left:16px;right:16px;bottom:calc(92px + env(safe-area-inset-bottom));z-index:5;text-align:center;color:white;font-weight:700;background:rgba(0,0,0,.36);border-radius:999px;padding:9px 14px;backdrop-filter:blur(10px);opacity:.85;transition:opacity .4s}
-  .hide{opacity:0!important}
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:system-ui,-apple-system,Segoe UI,sans-serif;touch-action:none}
+  canvas{position:fixed;inset:0;width:100vw;height:100vh;background:#000}
+  video{display:none}
+  #ui{position:fixed;left:0;right:0;bottom:calc(20px + env(safe-area-inset-bottom));display:flex;justify-content:center;gap:18px;z-index:5;pointer-events:none}
+  button{pointer-events:auto;border:0;border-radius:999px;padding:18px 46px;font-size:24px;font-weight:900;letter-spacing:.02em;color:#16110a;background:linear-gradient(#ffe27a,#d99d19);box-shadow:0 12px 34px #0008}
+  button.off{background:rgba(22,22,22,.76);color:#fff;backdrop-filter:blur(14px)}
+  #badge{position:fixed;left:18px;top:calc(16px + env(safe-area-inset-top));z-index:6;border-radius:999px;padding:12px 18px;background:rgba(20,20,20,.58);color:white;font-weight:800;font-size:18px;backdrop-filter:blur(12px)}
+  #badge.on{color:#ffd84f;border:1px solid rgba(255,216,79,.38)}
+  #hint{position:fixed;right:14px;top:calc(17px + env(safe-area-inset-top));z-index:6;border-radius:999px;padding:12px 15px;background:rgba(20,20,20,.5);color:#fff;font-weight:700;font-size:15px;backdrop-filter:blur(12px);max-width:52vw;text-align:right}
 </style>
 </head>
 <body>
-<video id="cam" autoplay playsinline muted></video>
-<canvas id="fx"></canvas>
-<div id="top"><div id="state" class="pill">LIVE</div><div id="track" class="pill">auto can tracking</div></div>
-<div id="hint">Press XRAY, point at the closed fridge. Tap the can if placement is off.</div>
-<div id="bar"><button id="xray">XRAY</button></div>
-<img id="chandelier" src="assets/chandelier_cutout.png" style="display:none" />
-<img id="texture" src="assets/user_texture_cutout.png" style="display:none" />
+<video id="video" autoplay playsinline muted></video>
+<canvas id="view"></canvas>
+<div id="badge">LIVE</div>
+<div id="hint">press XRAY, point at can</div>
+<div id="ui"><button id="live" class="off">LIVE</button><button id="xray">XRAY</button></div>
 <script>
-const video=document.getElementById('cam');
-const canvas=document.getElementById('fx');
-const ctx=canvas.getContext('2d',{alpha:true});
-const ch=document.getElementById('chandelier');
-const tex=document.getElementById('texture');
-const btn=document.getElementById('xray');
-const state=document.getElementById('state');
-const track=document.getElementById('track');
-const hint=document.getElementById('hint');
-let xray=false;
-let manual=null;
-let target={x:.53,y:.28,w:.34,h:.58,score:0};
-let smooth={...target};
-let tiltX=0, tiltY=0, frame=0;
-let started=false;
+const video = document.getElementById('video');
+const canvas = document.getElementById('view');
+const ctx = canvas.getContext('2d', { alpha:false });
+const badge = document.getElementById('badge');
+const hint = document.getElementById('hint');
+const xrayBtn = document.getElementById('xray');
+const liveBtn = document.getElementById('live');
+const sample = document.createElement('canvas');
+sample.width = 144; sample.height = 216;
+const sctx = sample.getContext('2d', { willReadFrequently:true });
 
-function resize(){canvas.width=innerWidth*devicePixelRatio;canvas.height=innerHeight*devicePixelRatio;ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}
-addEventListener('resize',resize); resize();
+let streamStarted=false, xray=false;
+let W=1,H=1, dpr=1;
+let gamma=0, beta=0;
+let box = {x:.29,y:.16,w:.48,h:.70, conf:0};
+let lastDetect=0;
+let frame=0;
+const imgs = ['front_open.jpg','left_open.jpg','right_open.jpg','close_detail.jpg'].map(n=>{
+  const im=new Image(); im.src='assets/'+n; return im;
+});
+
+function resize(){
+  dpr = Math.min(devicePixelRatio||1, 2);
+  W = Math.round(innerWidth*dpr); H = Math.round(innerHeight*dpr);
+  canvas.width=W; canvas.height=H;
+}
+addEventListener('resize', resize); resize();
 
 async function startCamera(){
-  if(started)return; started=true;
-  try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
-    video.srcObject=stream;
-  }catch(e){alert('Camera access failed. Use HTTPS/GitHub Pages and allow camera. '+e.message)}
-}
-startCamera();
-
-btn.onclick=()=>{xray=!xray;state.textContent=xray?'XRAY ON':'LIVE';state.classList.toggle('on',xray);btn.textContent=xray?'LIVE':'XRAY';hint.classList.toggle('hide',xray);startCamera();};
-
-addEventListener('pointerdown',e=>{
-  if(!xray)return;
-  // One-tap manual correction, no lock workflow.
-  const w=innerWidth,h=innerHeight;
-  manual={x:e.clientX/w,y:Math.max(.12,e.clientY/h-.04),w:target.w,h:target.h,ttl:240};
-});
-
-addEventListener('deviceorientation',e=>{
-  tiltX=(e.gamma||0)/45; tiltY=(e.beta||0)/90;
-});
-
-function videoFit(){
-  const vw=video.videoWidth||16, vh=video.videoHeight||9, sw=innerWidth, sh=innerHeight;
-  const s=Math.max(sw/vw,sh/vh), dw=vw*s, dh=vh*s;
-  return {vw,vh,s,ox:(sw-dw)/2,oy:(sh-dh)/2,dw,dh};
-}
-function screenToVideoRect(r){
-  const f=videoFit();
-  return {x:Math.max(0,(r.x*innerWidth-f.ox)/f.s),y:Math.max(0,(r.y*innerHeight-f.oy)/f.s),w:Math.min(f.vw,r.w*innerWidth/f.s),h:Math.min(f.vh,r.h*innerHeight/f.s)};
+ if(streamStarted) return;
+ try{
+   const st = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080} }, audio:false });
+   video.srcObject = st; streamStarted=true;
+ }catch(e){ hint.textContent='camera permission needed'; }
 }
 
-const probe=document.createElement('canvas'); const pctx=probe.getContext('2d',{willReadFrequently:true});
-function detectCan(){
-  if(!video.videoWidth)return target;
-  const W=96,H=144; probe.width=W; probe.height=H; pctx.drawImage(video,0,0,W,H);
-  const data=pctx.getImageData(0,0,W,H).data;
-  const x0=Math.floor(W*.23), x1=Math.floor(W*.82), y0=Math.floor(H*.19), y1=Math.floor(H*.90);
-  const cols=new Float32Array(W), rows=new Float32Array(H);
-  for(let y=y0;y<y1;y++){
-    for(let x=x0;x<x1;x++){
-      const i=(y*W+x)*4, r=data[i], g=data[i+1], b=data[i+2];
-      const mx=Math.max(r,g,b), mn=Math.min(r,g,b), br=(r+g+b)/3;
-      const gray=(mx-mn)<34 && br>54 && br<205;
-      const notWall=!(br>165 && mx-mn<18); // avoid flat white wall
-      const metalEdge = gray && notWall;
-      if(metalEdge){ cols[x]++; rows[y]++; }
-    }
-  }
-  // Smooth columns, find best broad metallic vertical span.
-  const sm=new Float32Array(W);
-  for(let x=1;x<W-1;x++) sm[x]=(cols[x-1]+cols[x]+cols[x+1])/3;
-  let best={score:0,a:x0,b:x1};
-  for(let a=x0;a<x1-8;a++){
-    let sum=0;
-    for(let b=a;b<Math.min(x1,a+34);b++){
-      sum+=sm[b];
-      const width=b-a+1;
-      if(width>10){
-        const sc=sum/Math.sqrt(width);
-        if(sc>best.score) best={score:sc,a,b};
+async function askMotion(){
+ try{
+  if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function') await DeviceOrientationEvent.requestPermission();
+ }catch(e){}
+}
+addEventListener('deviceorientation', e=>{ gamma=e.gamma||0; beta=e.beta||0; });
+
+function drawVideoCover(){
+  if(!video.videoWidth){ ctx.fillStyle='#111'; ctx.fillRect(0,0,W,H); return; }
+  const vw=video.videoWidth, vh=video.videoHeight;
+  const scale=Math.max(W/vw,H/vh), dw=vw*scale, dh=vh*scale;
+  ctx.drawImage(video,(W-dw)/2,(H-dh)/2,dw,dh);
+}
+
+function autoDetectCan(){
+  if(!video.videoWidth) return;
+  sctx.drawImage(video,0,0,sample.width,sample.height);
+  const w=sample.width,h=sample.height;
+  const data=sctx.getImageData(0,0,w,h).data;
+  let minX=w,maxX=0,minY=h,maxY=0,count=0;
+  // Weighted detector for large grey/silver closed cans, avoiding white wall and dark UI.
+  for(let y=Math.floor(h*.10); y<h*.92; y++){
+    for(let x=Math.floor(w*.08); x<w*.92; x++){
+      const i=(y*w+x)*4, r=data[i], g=data[i+1], b=data[i+2];
+      const mx=Math.max(r,g,b), mn=Math.min(r,g,b), sat=(mx-mn)/(mx+1);
+      const grey=Math.abs(r-g)+Math.abs(g-b)+Math.abs(r-b);
+      // silver can: low saturation, medium/bright, not pure white wall
+      if(sat<.18 && grey<42 && mx>82 && mx<222){
+        // prefer central/lower cryostat zone, not ceiling/UI
+        const cx=Math.abs((x/w)-.52), cy=Math.abs((y/h)-.52);
+        if(cx<.42 && cy<.43){
+          minX=Math.min(minX,x); maxX=Math.max(maxX,x); minY=Math.min(minY,y); maxY=Math.max(maxY,y); count++;
+        }
       }
     }
   }
-  // vertical extent from row score; default top under frame
-  let top=y0, bot=y1;
-  const maxRow=Math.max(...rows);
-  if(maxRow>3){
-    let ys=[]; for(let y=y0;y<y1;y++) if(rows[y]>.18*maxRow) ys.push(y);
-    if(ys.length>8){top=Math.min(...ys); bot=Math.max(...ys)}
+  const area=(maxX-minX)*(maxY-minY);
+  const conf=count/(w*h);
+  let nb;
+  if(count>850 && area>w*h*.045){
+    let x=minX/w, y=minY/h, bw=(maxX-minX)/w, bh=(maxY-minY)/h;
+    // Convert loose grey bounds into the expected OVC body volume.
+    x = Math.max(.08, x-.035); y = Math.max(.08, y-.015);
+    bw = Math.min(.78, bw+.07); bh = Math.min(.82, bh+.04);
+    // if huge wall was detected, fall back to central cryostat volume
+    if(bw>.75 || bh>.88 || bw<.22 || bh<.36) nb={x:.30,y:.16,w:.47,h:.70,conf:.15};
+    else nb={x,y,w:bw,h:bh,conf:Math.min(1,conf*12)};
+  } else {
+    nb={x:.30,y:.16,w:.47,h:.70,conf:0};
   }
-  const score=best.score/42;
-  const cx=(best.a+best.b)/2/W;
-  const ww=Math.max(.25, Math.min(.46,(best.b-best.a+1)/W*1.45));
-  const yy=Math.max(.18,top/H-.03);
-  const hh=Math.max(.45, Math.min(.74,(bot-top)/H*1.08));
-  return {x:cx,y:yy,w:ww,h:hh,score};
+  // Smooth; keep it stable so it feels attached.
+  const a = nb.conf>.18 ? .10 : .035;
+  box.x=box.x*(1-a)+nb.x*a; box.y=box.y*(1-a)+nb.y*a; box.w=box.w*(1-a)+nb.w*a; box.h=box.h*(1-a)+nb.h*a; box.conf=nb.conf;
 }
 
-function avgWallColor(r){
-  const W=80,H=80; probe.width=W; probe.height=H; pctx.drawImage(video,0,0,W,H);
-  const data=pctx.getImageData(0,0,W,H).data;
-  const cx=r.x*W, cy=r.y*H, rw=r.w*W, rh=r.h*H;
-  let R=0,G=0,B=0,n=0;
-  const samples=[];
-  // sample left and right wall bands around the can height
-  for(let side of [-1,1]){
-    const sx=Math.max(2,Math.min(W-3,Math.round(cx+side*(rw*.72))));
-    for(let yy=Math.max(2,Math.round(cy+rh*.05)); yy<Math.min(H-2,Math.round(cy+rh*.9)); yy+=2){
-      for(let xx=sx-2; xx<=sx+2; xx++) samples.push([xx,yy]);
-    }
-  }
-  for(const [x,y] of samples){
-    const i=(y*W+x)*4, r0=data[i],g0=data[i+1],b0=data[i+2];
-    const mx=Math.max(r0,g0,b0), mn=Math.min(r0,g0,b0), br=(r0+g0+b0)/3;
-    if(br>65 && br<235 && mx-mn<55){R+=r0;G+=g0;B+=b0;n++;}
-  }
-  if(n<5)return [210,207,194];
-  return [R/n,G/n,B/n];
-}
-
-function roundedCylinderPath(x,y,w,h){
-  const rr=Math.min(w*.48,h*.17);
+function canPath(x,y,w,h){
+  const r=w*.31, top=h*.08;
   ctx.beginPath();
-  ctx.moveTo(x+rr,y);
-  ctx.lineTo(x+w-rr,y);
-  ctx.quadraticCurveTo(x+w,y,x+w,y+rr);
-  ctx.lineTo(x+w,y+h-rr*.45);
-  ctx.quadraticCurveTo(x+w,y+h,x+w-rr,y+h);
-  ctx.lineTo(x+rr,y+h);
-  ctx.quadraticCurveTo(x,y+h,x,y+h-rr*.45);
-  ctx.lineTo(x,y+rr);
-  ctx.quadraticCurveTo(x,y,x+rr,y);
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r*.72);
+  ctx.lineTo(x+w,y+h-r*.72);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r*.72);
+  ctx.lineTo(x,y+r*.72);
+  ctx.quadraticCurveTo(x,y,x+r,y);
   ctx.closePath();
 }
 
-function drawErase(r){
-  const W=innerWidth,H=innerHeight;
-  const x=(r.x-r.w/2)*W, y=r.y*H, w=r.w*W, h=r.h*H;
-  const [R,G,B]=avgWallColor(r);
+function drawXray(){
+  const x=box.x*W, y=box.y*H, w=box.w*W, h=box.h*H;
+  // Select view using phone angle. Center = user's best open-fridge view.
+  let im=imgs[0];
+  if(gamma>10) im=imgs[1]; else if(gamma<-10) im=imgs[2];
+  if(Math.abs(beta)>38 && imgs[3].complete) im=imgs[3];
+
   ctx.save();
-  roundedCylinderPath(x,y,w,h);
+  canPath(x,y,w,h);
   ctx.clip();
-  // Soft wall replacement, not a white portal.
-  let grad=ctx.createLinearGradient(x,y,x+w,y+h);
-  grad.addColorStop(0,`rgba(${R*0.93},${G*0.93},${B*0.93},.80)`);
-  grad.addColorStop(.45,`rgba(${Math.min(255,R*1.06)},${Math.min(255,G*1.06)},${Math.min(255,B*1.06)},.88)`);
-  grad.addColorStop(1,`rgba(${R*0.88},${G*0.88},${B*0.88},.76)`);
+
+  // Remove closed can only inside the can volume: paint over it with the real open-fridge image.
+  ctx.globalAlpha=.985;
+  const parX=gamma*0.004*w, parY=(beta-35)*0.0018*h;
+  const iw=im.naturalWidth||800, ih=im.naturalHeight||1200;
+  const scale=Math.max((w*1.20)/iw,(h*1.14)/ih);
+  const dw=iw*scale, dh=ih*scale;
+  const dx=x+(w-dw)/2 + parX;
+  const dy=y-h*.045 + parY; // attach top cold plate to the can top
+  ctx.drawImage(im,dx,dy,dw,dh);
+
+  // Make it read as being behind glass / inside the still-present fridge.
+  const grad=ctx.createRadialGradient(x+w*.48,y+h*.32,w*.08,x+w*.50,y+h*.48,w*.68);
+  grad.addColorStop(0,'rgba(255,231,151,.10)');
+  grad.addColorStop(.52,'rgba(255,213,80,.035)');
+  grad.addColorStop(1,'rgba(0,0,0,.13)');
   ctx.fillStyle=grad; ctx.fillRect(x,y,w,h);
-  // Preserve glass/room feeling via faint vertical reflections.
-  ctx.globalAlpha=.13; ctx.fillStyle='white'; ctx.fillRect(x+w*.15,y,w*.06,h); ctx.fillRect(x+w*.75,y,w*.035,h);
-  ctx.globalAlpha=.10; ctx.fillStyle='black'; ctx.fillRect(x+w*.02,y,w*.05,h); ctx.fillRect(x+w*.94,y,w*.05,h);
   ctx.restore();
-  // Feathered edge, no hard yellow capsule.
+
+  // Re-add top rim/attachment cue without drawing a capsule.
   ctx.save();
-  ctx.strokeStyle='rgba(255,210,70,.16)'; ctx.lineWidth=1.2; roundedCylinderPath(x,y,w,h); ctx.stroke();
+  ctx.globalAlpha=.34;
+  ctx.strokeStyle='rgba(255,210,64,.55)';
+  ctx.lineWidth=Math.max(1.2*dpr, w*.006);
+  ctx.beginPath();
+  ctx.ellipse(x+w/2, y+h*.055, w*.39, h*.035, 0, Math.PI, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+
+  // very subtle edge shadow: implies the object exists inside the cylindrical can, not on screen.
+  ctx.save();
+  canPath(x,y,w,h); ctx.clip();
+  const edge=ctx.createLinearGradient(x,y,x+w,y);
+  edge.addColorStop(0,'rgba(0,0,0,.20)'); edge.addColorStop(.16,'rgba(0,0,0,0)'); edge.addColorStop(.84,'rgba(0,0,0,0)'); edge.addColorStop(1,'rgba(0,0,0,.20)');
+  ctx.fillStyle=edge; ctx.fillRect(x,y,w,h);
   ctx.restore();
 }
 
-function drawChandelier(r){
-  const W=innerWidth,H=innerHeight;
-  // Attach the top flange just under the real top/can top.
-  const canX=(r.x-r.w/2)*W, canY=r.y*H, canW=r.w*W, canH=r.h*H;
-  const parX=tiltX*18, parY=tiltY*8;
-  const drawW=canW*1.18;
-  const drawH=canH*1.28;
-  const x=canX+canW/2-drawW/2+parX;
-  const y=canY-drawH*.08+parY;
-  ctx.save();
-  // perspective/skew: slight tilt with phone, centered on top flange
-  ctx.translate(x+drawW/2,y+drawH*.09);
-  ctx.rotate(tiltX*0.045);
-  ctx.transform(1,0,tiltX*.045,1,0,0);
-  ctx.translate(-(x+drawW/2),-(y+drawH*.09));
-  ctx.globalAlpha=.98;
-  ctx.shadowColor='rgba(255,196,45,.22)'; ctx.shadowBlur=22;
-  ctx.drawImage(ch,x,y,drawW,drawH);
-  // add user's real-fridge texture faintly, clipped to same footprint
-  ctx.globalAlpha=.28;
-  ctx.globalCompositeOperation='source-over';
-  ctx.drawImage(tex,x+drawW*.04,y+drawH*.02,drawW*.94,drawH*.88);
-  ctx.restore();
-  // Strong mechanical attachment cue: top shadow + subtle bolts/plate arc under frame
-  ctx.save();
-  ctx.globalAlpha=.55;
-  ctx.fillStyle='rgba(35,32,28,.28)';
-  ctx.beginPath(); ctx.ellipse(canX+canW/2, canY+canH*.02, canW*.58, canH*.045, 0,0,Math.PI*2); ctx.fill();
-  ctx.strokeStyle='rgba(255,214,92,.55)'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.ellipse(canX+canW/2, canY+canH*.035, canW*.50, canH*.035, 0,0,Math.PI*2); ctx.stroke();
-  ctx.restore();
-}
-
-function loop(){
-  requestAnimationFrame(loop); frame++;
-  ctx.clearRect(0,0,innerWidth,innerHeight);
-  if(!xray || !ch.complete)return;
-  if(frame%8===0 && !manual){
-    const d=detectCan();
-    if(d.score>.12) target=d;
+function loop(t){
+  frame++;
+  ctx.setTransform(1,0,0,1,0,0);
+  drawVideoCover();
+  if(xray){
+    if(t-lastDetect>180){ autoDetectCan(); lastDetect=t; }
+    drawXray();
+    hint.textContent = box.conf>.18 ? 'auto can replacement' : 'point at closed can';
   }
-  if(manual){ target={...manual,score:1}; manual.ttl--; if(manual.ttl<0) manual=null; }
-  // keep dimensions stable, but follow detection slowly
-  smooth.x=smooth.x*.88+target.x*.12; smooth.y=smooth.y*.88+target.y*.12; smooth.w=smooth.w*.92+target.w*.08; smooth.h=smooth.h*.92+target.h*.08;
-  track.textContent = target.score>.12 || manual ? 'fridge found' : 'point at closed fridge';
-  drawErase(smooth);
-  drawChandelier(smooth);
+  requestAnimationFrame(loop);
 }
-loop();
+requestAnimationFrame(loop);
+
+xrayBtn.onclick=async()=>{
+  await startCamera(); await askMotion();
+  xray=true; badge.textContent='XRAY ON'; badge.classList.add('on');
+};
+liveBtn.onclick=()=>{ xray=false; badge.textContent='LIVE'; badge.classList.remove('on'); hint.textContent='press XRAY, point at can'; };
+
+// No controls, but a double-tap cycles source view if the current angle looks wrong.
+let lastTap=0, forced=-1;
+canvas.addEventListener('touchend',()=>{
+  const now=Date.now();
+  if(now-lastTap<280){ forced=(forced+1)%imgs.length; const tmp=imgs.splice(forced,1)[0]; imgs.unshift(tmp); }
+  lastTap=now;
+});
 </script>
 </body>
 </html>
