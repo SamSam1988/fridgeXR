@@ -24,6 +24,11 @@
     transform-origin: center center;
     will-change: transform; touch-action: none;
   }
+  #o {
+    opacity: 0;
+    transition: opacity 0.8s ease;
+  }
+  #o.visible { opacity: 1; }
   #o img {
     display: block; height: 72vh; width: auto;
     filter: drop-shadow(0 4px 30px rgba(0,0,0,0.6)) saturate(1.1);
@@ -102,6 +107,53 @@
 
   // Fade hint after 6 seconds
   setTimeout(() => hint.classList.add('gone'), 6000);
+
+  // --- Fridge-presence detection ---
+  // Sample the centre of the video at low resolution and look for a large,
+  // bright, desaturated region (the white closed enclosure). Fade the
+  // chandelier overlay in when present, out when absent. Hysteresis keeps
+  // it from flickering on the threshold.
+  const detCanvas = document.createElement('canvas');
+  detCanvas.width = 64; detCanvas.height = 96;
+  const dctx = detCanvas.getContext('2d', { willReadFrequently: true });
+  let visible = false;
+  let lastChange = 0;
+  const THRESHOLD_ON  = 0.30;  // fraction of bright-desaturated pixels to turn on
+  const THRESHOLD_OFF = 0.18;  // fraction below which to turn off
+  const COOLDOWN_MS   = 600;   // minimum time between state changes
+
+  function tick() {
+    if (v.readyState >= 2 && v.videoWidth) {
+      dctx.drawImage(v, 0, 0, detCanvas.width, detCanvas.height);
+      // Sample a centred rectangle (60% width, 70% height).
+      const x0 = Math.floor(detCanvas.width * 0.20);
+      const y0 = Math.floor(detCanvas.height * 0.15);
+      const w  = Math.floor(detCanvas.width * 0.60);
+      const h  = Math.floor(detCanvas.height * 0.70);
+      const img = dctx.getImageData(x0, y0, w, h).data;
+      let hits = 0;
+      const total = (img.length / 4);
+      for (let i = 0; i < img.length; i += 4) {
+        const r = img[i], g = img[i+1], b = img[i+2];
+        // bright (>165) and low saturation (RGB channels close together).
+        if (r > 165 && g > 165 && b > 165) {
+          const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+          if (mx - mn < 35) hits++;
+        }
+      }
+      const frac = hits / total;
+      const now = Date.now();
+      if (!visible && frac > THRESHOLD_ON && now - lastChange > COOLDOWN_MS) {
+        visible = true; o.classList.add('visible'); lastChange = now;
+        hint.classList.add('gone');
+      } else if (visible && frac < THRESHOLD_OFF && now - lastChange > COOLDOWN_MS) {
+        visible = false; o.classList.remove('visible'); lastChange = now;
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+  // Start detection loop after a small delay so the first frame is ready.
+  v.addEventListener('playing', () => requestAnimationFrame(tick), { once: true });
 
   // Gesture handling
   const pts = new Map();
