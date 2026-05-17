@@ -121,19 +121,34 @@
   const colRun = new Int16Array(W);
   const colTop = new Int16Array(W);
   const colBot = new Int16Array(W);
+  const colDark = new Int16Array(W);
 
   function detect() {
     if (v.readyState < 2 || !v.videoWidth) return null;
-    dctx.drawImage(v, 0, 0, W, H);
+    // Sample ONLY the visible part of the video (the bit not cropped by
+    // object-fit: cover). Detection coords then map directly to window coords.
+    const vw = v.videoWidth, vh = v.videoHeight;
+    const winW = window.innerWidth, winH = window.innerHeight;
+    const sc = Math.max(winW / vw, winH / vh);
+    const sx = (vw - winW / sc) / 2;
+    const sy = (vh - winH / sc) / 2;
+    const srcW = winW / sc;
+    const srcH = winH / sc;
+    dctx.drawImage(v, sx, sy, srcW, srcH, 0, 0, W, H);
     const data = dctx.getImageData(0, 0, W, H).data;
 
+    let globalDark = 0;
     for (let x = 0; x < W; x++) {
       let bestLen = 0, bestTop = -1, bestBot = -1, curStart = -1;
+      let darkInCol = 0;
       for (let y = 0; y <= H; y++) {
-        let white = false;
+        let white = false, dark = false;
         if (y < H) {
           const i = (y * W + x) * 4;
-          white = isWhite(data[i], data[i + 1], data[i + 2]);
+          const r = data[i], g = data[i + 1], b = data[i + 2];
+          white = isWhite(r, g, b);
+          dark = (r < 90 && g < 90 && b < 90);
+          if (dark) { darkInCol++; globalDark++; }
         }
         if (white && curStart < 0) curStart = y;
         if ((!white || y === H) && curStart >= 0) {
@@ -145,39 +160,44 @@
       colRun[x] = bestLen;
       colTop[x] = bestTop;
       colBot[x] = bestBot;
+      colDark[x] = darkInCol;
     }
 
-    // smooth column runs with a 5-tap box filter to reduce noise
-    const sm = new Int16Array(W);
+    // Score each column: long white run AND some dark presence nearby.
+    // A plain white wall has long runs but zero dark → score 0.
+    // A dark floor has lots of dark but zero run → score 0.
+    // The fridge has both: vertical white run inside, dark above/below/around.
+    const score = new Float32Array(W);
+    for (let x = 0; x < W; x++) {
+      if (colRun[x] < H * 0.18) continue;          // require some vertical extent
+      if (colDark[x] < H * 0.05) continue;         // require some structure
+      score[x] = colRun[x] * Math.sqrt(colDark[x]);
+    }
+
+    // 5-tap smoothing
+    const sm = new Float32Array(W);
     for (let x = 0; x < W; x++) {
       let s = 0, n = 0;
       for (let k = -2; k <= 2; k++) {
         const xi = x + k;
-        if (xi >= 0 && xi < W) { s += colRun[xi]; n++; }
+        if (xi >= 0 && xi < W) { s += score[xi]; n++; }
       }
-      sm[x] = (s / n) | 0;
+      sm[x] = s / n;
     }
 
-    // find max
-    let mx = 0, mxX = 0;
+    let mx = 0, mxX = -1;
     for (let x = 0; x < W; x++) {
       if (sm[x] > mx) { mx = sm[x]; mxX = x; }
     }
+    if (mxX < 0 || mx === 0) return null;
 
-    // Require the run to span at least 25% of the frame height
-    if (mx < H * 0.25) return null;
-
-    // Expand left/right while run length >= 50% of max
-    const thr = mx * 0.5;
+    const thr = mx * 0.55;
     let left = mxX, right = mxX;
     while (left > 0 && sm[left - 1] >= thr) left--;
     while (right < W - 1 && sm[right + 1] >= thr) right++;
-
-    // Require horizontal width to be at least 8% and at most 70% of frame width
     const wPx = right - left + 1;
-    if (wPx < W * 0.08 || wPx > W * 0.70) return null;
+    if (wPx < W * 0.08 || wPx > W * 0.75) return null;
 
-    // Average top/bot over the selected columns
     let tSum = 0, bSum = 0, n = 0;
     for (let x = left; x <= right; x++) {
       if (colTop[x] >= 0) { tSum += colTop[x]; bSum += colBot[x]; n++; }
@@ -193,7 +213,7 @@
     };
   }
 
-  // ---------- Per-frame loop ----------
+    // ---------- Per-frame loop ----------
   function lerp(a, b, t) { return a + (b - a) * t; }
 
   function tick() {
@@ -221,19 +241,14 @@
   }
 
   function apply() {
-    if (!smooth || !imgAspect || !v.videoWidth) return;
+    if (!smooth || !imgAspect) return;
     const winW = window.innerWidth;
     const winH = window.innerHeight;
-    const vw = v.videoWidth, vh = v.videoHeight;
-    // Replicate object-fit: cover. The video is scaled by max(winW/vw, winH/vh)
-    // and centred; the rest is cropped.
-    const sc = Math.max(winW / vw, winH / vh);
-    const sw = vw * sc, sh = vh * sc;
-    const ox = (winW - sw) / 2;
-    const oy = (winH - sh) / 2;
-    const cx = ox + smooth.cx * sw;
-    const cy = oy + smooth.cy * sh;
-    const displayH = smooth.h * sh;
+    // Detection samples only the visible portion, so smooth.cx/cy/h are in
+    // window-normalised coords directly.
+    const cx = smooth.cx * winW;
+    const cy = smooth.cy * winH;
+    const displayH = smooth.h * winH;
     const displayW = displayH * imgAspect;
     img.style.height = displayH + 'px';
     img.style.width = displayW + 'px';
